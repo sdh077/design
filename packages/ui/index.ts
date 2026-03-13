@@ -2,3 +2,8 @@ export * from "./src/components/button"
 export * from "./src/components/card"
 export * from "./src/components/badge"
 export * from "./src/components/input"
+export * from "./src/components/sidebar";
+export * from "./src/components/topbar";
+export * from "./src/components/nav-link";
+export * from "./src/components/page-header";
+export * from "./src/components/stat-card";
