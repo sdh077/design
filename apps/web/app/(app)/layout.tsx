@@ -45,6 +45,8 @@ export default function AppLayout({
                         <div className="space-y-1">
                             <NavLink href="/menus">메뉴</NavLink>
                             <NavLink href="/inventory">재고</NavLink>
+                            <NavLink href="/recipes">레시피</NavLink>
+                            <NavLink href="/consumption">소모량</NavLink>
                         </div>
                     </SidebarGroup>
                 </SidebarContent>
