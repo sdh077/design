@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-type CompareRow = {
+type ConsumptionRow = {
     inventoryItemId: string;
     inventoryItemName: string;
     baseUnit: string;
@@ -25,11 +26,57 @@ export async function GET(req: NextRequest) {
             );
         }
 
-        const supabase = createAdminClient();
+        const supabase = await createClient();
+        const admin = createAdminClient();
+
+        const {
+            data: { user },
+            error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user) {
+            return NextResponse.json(
+                { ok: false, message: "로그인이 필요합니다." },
+                { status: 401 }
+            );
+        }
+
+        const { data: merchantAccount, error: accountError } = await admin
+            .from("merchant_accounts")
+            .select("merchant_id")
+            .eq("auth_user_id", user.id)
+            .maybeSingle();
+
+        if (accountError || !merchantAccount?.merchant_id) {
+            return NextResponse.json(
+                { ok: false, message: "가맹점 계정 정보가 없습니다." },
+                { status: 403 }
+            );
+        }
+
+        const { data: store, error: storeError } = await admin
+            .from("stores")
+            .select("id, merchant_id")
+            .eq("id", storeId)
+            .maybeSingle();
+
+        if (storeError || !store) {
+            return NextResponse.json(
+                { ok: false, message: "매장을 찾을 수 없습니다." },
+                { status: 404 }
+            );
+        }
+
+        if (store.merchant_id !== merchantAccount.merchant_id) {
+            return NextResponse.json(
+                { ok: false, message: "해당 매장에 접근할 수 없습니다." },
+                { status: 403 }
+            );
+        }
 
         const to = new Date();
         const from = new Date();
-        from.setDate(from.getDate() - days);
+        from.setDate(to.getDate() - days);
 
         const [
             { data: externalCatalogItems, error: externalCatalogItemsError },
@@ -41,30 +88,31 @@ export async function GET(req: NextRequest) {
             { data: externalOrderItems, error: externalOrderItemsError },
             { data: inventoryTxns, error: inventoryTxnsError },
         ] = await Promise.all([
-            supabase
+            admin
                 .from("external_catalog_items")
                 .select("id, external_item_id, store_id")
                 .eq("store_id", storeId),
 
-            supabase
+            admin
                 .from("menu_external_item_maps")
                 .select("id, menu_id, external_catalog_item_id"),
 
-            supabase
+            admin
                 .from("recipes")
-                .select("id, menu_id, is_active")
+                .select("id, menu_id, is_active, store_id")
+                .eq("store_id", storeId)
                 .eq("is_active", true),
 
-            supabase
+            admin
                 .from("recipe_lines")
                 .select("id, recipe_id, inventory_item_id, quantity, unit"),
 
-            supabase
+            admin
                 .from("inventory_items")
                 .select("id, name, base_unit, store_id")
                 .eq("store_id", storeId),
 
-            supabase
+            admin
                 .from("external_orders")
                 .select("id, store_id, ordered_at, order_state")
                 .eq("store_id", storeId)
@@ -72,13 +120,13 @@ export async function GET(req: NextRequest) {
                 .lte("ordered_at", to.toISOString())
                 .in("order_state", ["COMPLETED", "CLOSED", "DONE"]),
 
-            supabase
+            admin
                 .from("external_order_items")
                 .select("id, external_order_row_id, external_item_id, title, quantity"),
 
-            supabase
+            admin
                 .from("inventory_txns")
-                .select("id, inventory_item_id, type, quantity, occurred_at")
+                .select("id, inventory_item_id, type, quantity, unit, note, occurred_at")
                 .eq("store_id", storeId)
                 .gte("occurred_at", from.toISOString())
                 .lte("occurred_at", to.toISOString()),
@@ -130,7 +178,7 @@ export async function GET(req: NextRequest) {
 
         const recipeLinesByRecipeId = new Map<
             string,
-            Array<{ inventoryItemId: string; quantity: number }>
+            Array<{ inventoryItemId: string; quantity: number; unit: string }>
         >();
 
         for (const line of safeRecipeLines) {
@@ -139,6 +187,7 @@ export async function GET(req: NextRequest) {
             current.push({
                 inventoryItemId: String(line.inventory_item_id),
                 quantity: Number(line.quantity),
+                unit: String(line.unit),
             });
             recipeLinesByRecipeId.set(recipeId, current);
         }
@@ -156,7 +205,15 @@ export async function GET(req: NextRequest) {
             });
         }
 
-        const expectedMap = new Map<string, number>();
+        const expectedTotals = new Map<
+            string,
+            {
+                inventoryItemId: string;
+                inventoryItemName: string;
+                baseUnit: string;
+                expectedQuantity: number;
+            }
+        >();
 
         for (const orderItem of safeExternalOrderItems) {
             if (!validOrderIds.has(String(orderItem.external_order_row_id))) continue;
@@ -177,65 +234,92 @@ export async function GET(req: NextRequest) {
             const orderQty = Number(orderItem.quantity);
 
             for (const line of lines) {
-                const current = expectedMap.get(line.inventoryItemId) ?? 0;
-                expectedMap.set(line.inventoryItemId, current + orderQty * line.quantity);
+                const inventoryItem = inventoryItemById.get(line.inventoryItemId);
+                if (!inventoryItem) continue;
+
+                const consumed = orderQty * line.quantity;
+                const current = expectedTotals.get(line.inventoryItemId);
+
+                if (!current) {
+                    expectedTotals.set(line.inventoryItemId, {
+                        inventoryItemId: line.inventoryItemId,
+                        inventoryItemName: inventoryItem.name,
+                        baseUnit: inventoryItem.baseUnit,
+                        expectedQuantity: consumed,
+                    });
+                    continue;
+                }
+
+                current.expectedQuantity += consumed;
             }
         }
 
-        const actualOutMap = new Map<string, number>();
-        const wasteMap = new Map<string, number>();
-        const adjustmentMap = new Map<string, number>();
+        const actualMap = new Map<
+            string,
+            { actual: number; waste: number; adjustment: number }
+        >();
 
         for (const txn of safeInventoryTxns) {
-            const itemId = String(txn.inventory_item_id);
-            const qty = Number(txn.quantity);
-            const type = String(txn.type);
+            const key = String(txn.inventory_item_id);
+            const current = actualMap.get(key) ?? {
+                actual: 0,
+                waste: 0,
+                adjustment: 0,
+            };
+
+            const qty = Math.abs(Number(txn.quantity ?? 0));
+            const type = String(txn.type ?? "").toUpperCase();
+            const note = String(txn.note ?? "").toUpperCase();
 
             if (type === "OUT") {
-                actualOutMap.set(itemId, (actualOutMap.get(itemId) ?? 0) + qty);
+                current.actual += qty;
             } else if (type === "WASTE") {
-                wasteMap.set(itemId, (wasteMap.get(itemId) ?? 0) + qty);
-            } else if (type === "ADJUST" || type === "COUNT") {
-                adjustmentMap.set(itemId, (adjustmentMap.get(itemId) ?? 0) + qty);
+                current.waste += qty;
+            } else if (type === "ADJUSTMENT") {
+                current.adjustment += qty;
+            } else if (note.includes("WASTE")) {
+                current.waste += qty;
+            } else if (note.includes("ADJUST")) {
+                current.adjustment += qty;
             }
+
+            actualMap.set(key, current);
         }
 
-        const allInventoryIds = new Set<string>([
-            ...expectedMap.keys(),
-            ...actualOutMap.keys(),
-            ...wasteMap.keys(),
-            ...adjustmentMap.keys(),
+        const allInventoryItemIds = new Set([
+            ...Array.from(expectedTotals.keys()),
+            ...Array.from(actualMap.keys()),
         ]);
 
-        const items: CompareRow[] = Array.from(allInventoryIds).flatMap((itemId) => {
-            const inventoryItem = inventoryItemById.get(itemId);
-            if (!inventoryItem) return [];
+        const items: ConsumptionRow[] = Array.from(allInventoryItemIds).map((id) => {
+            const expected = expectedTotals.get(id);
+            const actual = actualMap.get(id);
+            const inventoryItem = inventoryItemById.get(id);
 
-            const expectedQuantity = expectedMap.get(itemId) ?? 0;
-            const actualOutQuantity = actualOutMap.get(itemId) ?? 0;
-            const wasteQuantity = wasteMap.get(itemId) ?? 0;
-            const actualQuantity = actualOutQuantity + wasteQuantity;
-            const adjustmentQuantity = adjustmentMap.get(itemId) ?? 0;
+            const expectedQuantity = Number(expected?.expectedQuantity ?? 0);
+            const actualQuantity = Number(actual?.actual ?? 0);
+            const wasteQuantity = Number(actual?.waste ?? 0);
+            const adjustmentQuantity = Number(actual?.adjustment ?? 0);
             const difference = actualQuantity - expectedQuantity;
             const varianceRate =
-                expectedQuantity > 0 ? Number(((difference / expectedQuantity) * 100).toFixed(2)) : null;
+                expectedQuantity > 0
+                    ? Number(((difference / expectedQuantity) * 100).toFixed(2))
+                    : null;
 
-            return [
-                {
-                    inventoryItemId: itemId,
-                    inventoryItemName: inventoryItem.name,
-                    baseUnit: inventoryItem.baseUnit,
-                    expectedQuantity,
-                    actualQuantity,
-                    wasteQuantity,
-                    adjustmentQuantity,
-                    difference,
-                    varianceRate,
-                },
-            ];
+            return {
+                inventoryItemId: id,
+                inventoryItemName: inventoryItem?.name ?? expected?.inventoryItemName ?? "알 수 없음",
+                baseUnit: inventoryItem?.baseUnit ?? expected?.baseUnit ?? "-",
+                expectedQuantity,
+                actualQuantity,
+                wasteQuantity,
+                adjustmentQuantity,
+                difference,
+                varianceRate,
+            };
         });
 
-        items.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
+        items.sort((a, b) => b.expectedQuantity - a.expectedQuantity);
 
         return NextResponse.json({
             ok: true,
