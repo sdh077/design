@@ -134,13 +134,13 @@ export function RecipeCalibrationClient({
       setItems((prev) =>
         prev.map((prevItem) =>
           prevItem.menuId === item.menuId &&
-          prevItem.inventoryItemId === item.inventoryItemId
+            prevItem.inventoryItemId === item.inventoryItemId
             ? {
-                ...prevItem,
-                currentQuantity: item.suggestedQuantity ?? prevItem.currentQuantity,
-                differencePerMenu: 0,
-                varianceRate: 0,
-              }
+              ...prevItem,
+              currentQuantity: item.suggestedQuantity ?? prevItem.currentQuantity,
+              differencePerMenu: 0,
+              varianceRate: 0,
+            }
             : prevItem
         )
       );
@@ -292,13 +292,12 @@ export function RecipeCalibrationClient({
                   : "-"}
               </div>
               <div
-                className={`px-4 py-3 text-right text-sm ${
-                  (item.differencePerMenu ?? 0) > 0
+                className={`px-4 py-3 text-right text-sm ${(item.differencePerMenu ?? 0) > 0
                     ? "text-red-400"
                     : (item.differencePerMenu ?? 0) < 0
-                    ? "text-emerald-400"
-                    : "text-zinc-300"
-                }`}
+                      ? "text-emerald-400"
+                      : "text-zinc-300"
+                  }`}
               >
                 {item.differencePerMenu !== null
                   ? item.differencePerMenu.toLocaleString()
@@ -309,13 +308,12 @@ export function RecipeCalibrationClient({
               </div>
               <div className="px-4 py-3">
                 <span
-                  className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                    item.confidence === "HIGH"
+                  className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${item.confidence === "HIGH"
                       ? "bg-emerald-950 text-emerald-300"
                       : item.confidence === "MEDIUM"
-                      ? "bg-amber-950 text-amber-300"
-                      : "bg-zinc-800 text-zinc-300"
-                  }`}
+                        ? "bg-amber-950 text-amber-300"
+                        : "bg-zinc-800 text-zinc-300"
+                    }`}
                 >
                   {item.confidence}
                 </span>

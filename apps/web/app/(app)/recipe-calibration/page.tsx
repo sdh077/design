@@ -7,18 +7,11 @@ import {
     PageHeader,
 } from "@workspace/ui";
 import { RecipeCalibrationClient } from "./recipe-calibration-client";
+import { getAccessibleStores } from "@/lib/store/get-accessible-stores";
 
 export default async function RecipeCalibrationPage() {
-    const supabase = createAdminClient();
 
-    const { data: stores, error } = await supabase
-        .from("stores")
-        .select("id, name")
-        .order("created_at", { ascending: false });
-
-    if (error) {
-        throw new Error(error.message);
-    }
+    const stores = await getAccessibleStores();
 
     return (
         <div>

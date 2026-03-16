@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { redirect } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -6,130 +6,96 @@ import {
   CardTitle,
   PageHeader,
 } from "@workspace/ui";
+import { createClient } from "@/lib/supabase/server";
+import { getAccessibleStores } from "@/lib/store/get-accessible-stores";
 import { CreateMenuForm } from "./create-menu-form";
-import {
-  MenuMappingTable,
-  type MenuMappingRow,
-  type MenuOption,
-} from "./menu-mapping-table";
+
+type MenuRow = {
+  id: string;
+  store_id: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
 
 export default async function MenusPage() {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
-  const [
-    { data: stores, error: storesError },
-    { data: menus, error: menusError },
-    { data: externalItems, error: externalItemsError },
-    { data: mappings, error: mappingsError },
-  ] = await Promise.all([
-    supabase
-      .from("stores")
-      .select("id, name")
-      .order("created_at", { ascending: false }),
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    supabase
+  if (!user) {
+    redirect("/login");
+  }
+
+  const stores = await getAccessibleStores();
+  const storeIds = stores.map((store) => store.id);
+
+  let menus: MenuRow[] = [];
+
+  if (storeIds.length > 0) {
+    const { data, error } = await supabase
       .from("menus")
-      .select("id, store_id, name, is_active, created_at")
-      .order("created_at", { ascending: false }),
+      .select("*")
+      .in("store_id", storeIds)
+      .order("created_at", { ascending: false });
 
-    supabase
-      .from("external_catalog_items")
-      .select("id, store_id, title, code, provider, created_at")
-      .order("created_at", { ascending: false }),
-
-    supabase
-      .from("menu_external_item_maps")
-      .select("id, menu_id, external_catalog_item_id, created_at"),
-  ]);
-
-  if (storesError) throw new Error(storesError.message);
-  if (menusError) throw new Error(menusError.message);
-  if (externalItemsError) throw new Error(externalItemsError.message);
-  if (mappingsError) throw new Error(mappingsError.message);
-
-  const safeStores = stores ?? [];
-  const safeMenus = menus ?? [];
-  const safeExternalItems = externalItems ?? [];
-  const safeMappings = mappings ?? [];
-
-  const menuById = new Map(
-    safeMenus.map((menu) => [
-      String(menu.id),
-      {
-        id: String(menu.id),
-        name: String(menu.name),
-        store_id: String(menu.store_id),
-      },
-    ])
-  );
-
-  const mappingByExternalId = new Map<
-    string,
-    {
-      id: string;
-      menuId: string;
-      menuName: string;
+    if (error) {
+      throw new Error(error.message);
     }
-  >(
-    safeMappings.flatMap((mapping) => {
-      const menu = menuById.get(String(mapping.menu_id));
 
-      if (!menu) return [];
+    menus = (data ?? []) as MenuRow[];
+  }
 
-      return [
-        [
-          String(mapping.external_catalog_item_id),
-          {
-            id: String(mapping.id),
-            menuId: String(mapping.menu_id),
-            menuName: String(menu.name),
-          },
-        ],
-      ];
-    })
+  const storeNameById = new Map(
+    stores.map((store) => [String(store.id), String(store.name)])
   );
-
-  const menuOptions: MenuOption[] = safeMenus.map((menu) => ({
-    id: String(menu.id),
-    name: String(menu.name),
-    store_id: String(menu.store_id),
-  }));
-
-  const rows: MenuMappingRow[] = safeExternalItems.map((item) => ({
-    id: String(item.id),
-    storeId: String(item.store_id),
-    title: String(item.title ?? ""),
-    code: item.code ?? null,
-    provider: String(item.provider ?? "TOSS_PLACE"),
-    mappedMenu: mappingByExternalId.get(String(item.id)) ?? null,
-  }));
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="메뉴"
-        description="외부 상품을 내부 메뉴로 표준화하고 매핑한다."
+        title="메뉴 현황"
+        description="내 가맹점 매장의 메뉴만 표시됩니다."
       />
 
-      <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle>내부 메뉴 생성</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CreateMenuForm stores={safeStores} />
-          </CardContent>
-        </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>메뉴 생성</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <CreateMenuForm stores={stores} />
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>외부 상품 매핑</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <MenuMappingTable rows={rows} menuOptions={menuOptions} />
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>메뉴 목록</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {menus.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+              등록된 메뉴가 없습니다.
+            </div>
+          ) : (
+            menus.map((menu) => (
+              <div
+                key={menu.id}
+                className="rounded-xl border border-border p-4"
+              >
+                <div className="font-medium">{menu.name}</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  매장: {storeNameById.get(String(menu.store_id)) ?? "-"}
+                </div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  상태: {menu.is_active ? "판매중" : "비활성"}
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

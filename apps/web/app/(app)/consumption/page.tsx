@@ -1,42 +1,30 @@
-import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  PageHeader,
-} from "@workspace/ui";
+import { redirect } from "next/navigation";
+import { PageHeader } from "@workspace/ui";
+import { createClient } from "@/lib/supabase/server";
+import { getAccessibleStores } from "@/lib/store/get-accessible-stores";
 import { ConsumptionClient } from "./consumption-client";
 
 export default async function ConsumptionPage() {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
-  const { data: stores, error } = await supabase
-    .from("stores")
-    .select("id, name")
-    .order("created_at", { ascending: false });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (error) {
-    throw new Error(error.message);
+  if (!user) {
+    redirect("/login");
   }
 
+  const stores = await getAccessibleStores();
+
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="소모량"
-        description="주문, 메뉴 매핑, 레시피 기준으로 예상 원재료 소모량을 계산한다."
+        title="소모량 조회"
+        description="내 가맹점 매장 기준으로 예상 소모량과 실제 사용량을 비교합니다."
       />
 
-      <div className="grid gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>소모량 조회</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ConsumptionClient stores={stores ?? []} />
-          </CardContent>
-        </Card>
-      </div>
+      <ConsumptionClient stores={stores} />
     </div>
   );
 }

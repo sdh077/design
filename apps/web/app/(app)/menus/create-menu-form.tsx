@@ -8,14 +8,21 @@ type StoreOption = {
   name: string;
 };
 
-export function CreateMenuForm({ stores }: { stores: StoreOption[] }) {
+interface CreateMenuFormProps {
+  stores: StoreOption[];
+}
+
+export function CreateMenuForm({ stores }: CreateMenuFormProps) {
   const [storeId, setStoreId] = useState(stores[0]?.id ?? "");
   const [name, setName] = useState("");
+  const [isActive, setIsActive] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   const onSubmit = async () => {
     try {
       setLoading(true);
+      setMessage(null);
 
       const res = await fetch("/api/menus", {
         method: "POST",
@@ -25,6 +32,7 @@ export function CreateMenuForm({ stores }: { stores: StoreOption[] }) {
         body: JSON.stringify({
           storeId,
           name,
+          isActive,
         }),
       });
 
@@ -34,9 +42,12 @@ export function CreateMenuForm({ stores }: { stores: StoreOption[] }) {
         throw new Error(json.message ?? "메뉴 생성 실패");
       }
 
+      setName("");
+      setIsActive(true);
+      setMessage("메뉴가 생성되었습니다.");
       window.location.reload();
     } catch (error) {
-      alert(error instanceof Error ? error.message : "메뉴 생성 실패");
+      setMessage(error instanceof Error ? error.message : "메뉴 생성 실패");
     } finally {
       setLoading(false);
     }
@@ -45,9 +56,9 @@ export function CreateMenuForm({ stores }: { stores: StoreOption[] }) {
   return (
     <div className="space-y-3">
       <select
-        className="h-10 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-zinc-600"
         value={storeId}
         onChange={(e) => setStoreId(e.target.value)}
+        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
       >
         {stores.map((store) => (
           <option key={store.id} value={store.id}>
@@ -57,13 +68,31 @@ export function CreateMenuForm({ stores }: { stores: StoreOption[] }) {
       </select>
 
       <Input
-        placeholder="내부 메뉴명"
+        placeholder="메뉴명"
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
 
-      <Button onClick={onSubmit} disabled={loading || !storeId || !name}>
-        {loading ? "생성 중..." : "내부 메뉴 생성"}
+      <label className="flex items-center gap-2 text-sm text-foreground">
+        <input
+          type="checkbox"
+          checked={isActive}
+          onChange={(e) => setIsActive(e.target.checked)}
+        />
+        판매중으로 등록
+      </label>
+
+      {message ? (
+        <div className="rounded-xl border border-border p-3 text-sm text-muted-foreground">
+          {message}
+        </div>
+      ) : null}
+
+      <Button
+        onClick={onSubmit}
+        disabled={loading || !storeId || !name.trim()}
+      >
+        {loading ? "생성 중..." : "메뉴 생성"}
       </Button>
     </div>
   );

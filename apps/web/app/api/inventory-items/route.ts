@@ -2,6 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export async function GET(req: NextRequest) {
+    const storeId = req.nextUrl.searchParams.get("storeId");
+
+    if (!storeId) {
+        return NextResponse.json({ ok: false });
+    }
+
+    const admin = createAdminClient();
+
+    const { data, error } = await admin
+        .from("inventory_items")
+        .select("id,name,base_unit")
+        .eq("store_id", storeId)
+        .order("name");
+
+    if (error) {
+        return NextResponse.json({ ok: false, message: error.message });
+    }
+
+    return NextResponse.json({ ok: true, items: data });
+}
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();

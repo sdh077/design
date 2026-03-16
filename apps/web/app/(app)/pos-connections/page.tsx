@@ -39,7 +39,6 @@ export default async function PosConnectionsPage() {
     const storeIds = stores.map((store) => store.id);
 
     let connections: PosConnectionRow[] = [];
-
     if (storeIds.length > 0) {
         const { data, error } = await supabase
             .from("pos_connections")
