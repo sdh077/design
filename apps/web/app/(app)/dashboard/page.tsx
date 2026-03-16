@@ -9,6 +9,7 @@ import {
 } from "@workspace/ui";
 import { createClient } from "@/lib/supabase/server";
 import { getAccessibleStores } from "@/lib/store/get-accessible-stores";
+import { StoreActions } from "@/components/stores/StoreActions";
 
 export default async function DashboardPage() {
     const supabase = await createClient();
@@ -86,9 +87,18 @@ export default async function DashboardPage() {
                                 key={store.id}
                                 className="rounded-xl border border-border p-4"
                             >
-                                <div className="font-medium">{store.name}</div>
-                                <div className="mt-1 text-sm text-muted-foreground">
-                                    code: {store.code ?? "-"} / timezone: {store.timezone}
+                                <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                        <div className="font-medium">{store.name}</div>
+                                        <div className="mt-1 text-sm text-muted-foreground">
+                                            code: {store.code ?? "-"} / timezone: {store.timezone}
+                                        </div>
+                                        <div className="mt-1 text-sm text-muted-foreground">
+                                            {store.address ?? "-"}
+                                        </div>
+                                    </div>
+
+                                    <StoreActions store={store} />
                                 </div>
                             </div>
                         ))
