@@ -1,18 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
-import { getUserWorkspaceIds } from "@/lib/auth/get-user-workspaces";
+import { getCurrentMerchantAccount } from "@/lib/auth/get-user-merchant";
 
 export async function getAccessibleStores() {
     const supabase = await createClient();
-    const workspaceIds = await getUserWorkspaceIds();
+    const account = await getCurrentMerchantAccount();
 
-    if (workspaceIds.length === 0) {
+    if (!account?.merchant_id) {
         return [];
     }
 
     const { data, error } = await supabase
         .from("stores")
         .select("*")
-        .in("workspace_id", workspaceIds)
+        .eq("merchant_id", account.merchant_id)
         .order("created_at", { ascending: false });
 
     if (error) {

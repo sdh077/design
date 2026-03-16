@@ -1,12 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { TossClient } from "@/lib/toss-client";
+
+type TossOrderItem = {
+    itemId?: string;
+    title: string;
+    quantity: number;
+    options?: unknown;
+};
+
+type TossOrder = {
+    orderId: string;
+    orderState: string;
+    orderedAt: string;
+    completedAt?: string | null;
+    cancelledAt?: string | null;
+    totalAmount?: number | null;
+    lineItems?: TossOrderItem[];
+};
 
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         const storeId = String(body.storeId ?? "");
-        const days = Number(body.days ?? 2);
 
         if (!storeId) {
             return NextResponse.json(
@@ -15,114 +31,144 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const supabase = createAdminClient();
+        const supabase = await createClient();
+        const admin = createAdminClient();
 
-        const { data: connection, error: connectionError } = await supabase
-            .from("pos_connections")
-            .select("*")
-            .eq("store_id", storeId)
-            .eq("provider", "TOSS_PLACE")
-            .eq("is_active", true)
-            .single();
+        const {
+            data: { user },
+            error: userError,
+        } = await supabase.auth.getUser();
 
-        if (connectionError || !connection) {
+        if (userError || !user) {
             return NextResponse.json(
-                { ok: false, message: "POS connection not found" },
+                { ok: false, message: "로그인이 필요합니다." },
+                { status: 401 }
+            );
+        }
+
+        const { data: merchantAccount, error: accountError } = await admin
+            .from("merchant_accounts")
+            .select("merchant_id")
+            .eq("auth_user_id", user.id)
+            .maybeSingle();
+
+        if (accountError || !merchantAccount?.merchant_id) {
+            return NextResponse.json(
+                { ok: false, message: "가맹점 계정 정보가 없습니다." },
+                { status: 403 }
+            );
+        }
+
+        const { data: store, error: storeError } = await admin
+            .from("stores")
+            .select("id, merchant_id")
+            .eq("id", storeId)
+            .maybeSingle();
+
+        if (storeError || !store) {
+            return NextResponse.json(
+                { ok: false, message: "매장을 찾을 수 없습니다." },
                 { status: 404 }
             );
         }
 
-        const client = new TossClient(
-            process.env.TOSS_BASE_URL!,
-            connection.access_key,
-            connection.secret_key,
-            connection.merchant_id
-        );
-
-        const to = new Date();
-        const from = new Date();
-        from.setDate(to.getDate() - days);
-
-        let page = 1;
-        const size = 100;
-        let syncedCount = 0;
-
-        while (true) {
-            const orders = await client.getOrders({
-                from: from.toISOString(),
-                to: to.toISOString(),
-                page,
-                size,
-            });
-
-            if (orders.length === 0) break;
-
-            for (const order of orders) {
-                const orderPayload = {
-                    store_id: storeId,
-                    provider: "TOSS_PLACE",
-                    external_order_id: order.id,
-                    order_state: order.orderState,
-                    ordered_at: order.createdAt,
-                    completed_at: order.completedAt ?? null,
-                    cancelled_at: order.cancelledAt ?? null,
-                    total_amount: order.chargePrice?.totalAmount ?? null,
-                    raw_json: order,
-                    synced_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                };
-
-                const { data: savedOrder, error: orderError } = await supabase
-                    .from("external_orders")
-                    .upsert(orderPayload, {
-                        onConflict: "store_id,provider,external_order_id",
-                    })
-                    .select("*")
-                    .single();
-
-                if (orderError || !savedOrder) {
-                    throw new Error(orderError?.message ?? "failed to save order");
-                }
-
-                const { error: deleteError } = await supabase
-                    .from("external_order_items")
-                    .delete()
-                    .eq("external_order_row_id", savedOrder.id);
-
-                if (deleteError) {
-                    throw new Error(deleteError.message);
-                }
-
-                if (order.lineItems.length > 0) {
-                    const itemRows = order.lineItems.map((line) => ({
-                        external_order_row_id: savedOrder.id,
-                        external_item_id: line.item.id ?? null,
-                        title: line.item.title,
-                        quantity: line.quantity,
-                        raw_options_json: line.optionChoices ?? [],
-                    }));
-
-                    const { error: itemsInsertError } = await supabase
-                        .from("external_order_items")
-                        .insert(itemRows);
-
-                    if (itemsInsertError) {
-                        throw new Error(itemsInsertError.message);
-                    }
-                }
-
-                syncedCount += 1;
-            }
-
-            if (orders.length < size) break;
-            page += 1;
+        if (store.merchant_id !== merchantAccount.merchant_id) {
+            return NextResponse.json(
+                { ok: false, message: "해당 매장에 접근할 수 없습니다." },
+                { status: 403 }
+            );
         }
 
-        const { error: updateError } = await supabase
+        const { data: connection, error: connectionError } = await admin
+            .from("pos_connections")
+            .select("*")
+            .eq("store_id", storeId)
+            .eq("provider", "TOSS")
+            .maybeSingle();
+
+        if (connectionError) {
+            throw new Error(connectionError.message);
+        }
+
+        if (!connection) {
+            return NextResponse.json(
+                { ok: false, message: "POS 연결 정보가 없습니다." },
+                { status: 404 }
+            );
+        }
+
+        const response = await fetch(
+            `https://api.tossplace.com/api-public/openapi/v1/merchants/${connection.merchant_id}/order/orders`,
+            {
+                headers: {
+                    Authorization: `Bearer ${connection.access_key}`,
+                    "Content-Type": "application/json",
+                },
+                cache: "no-store",
+            }
+        );
+
+        if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`토스 주문 조회 실패: ${text}`);
+        }
+
+        const result = await response.json();
+        const orders: TossOrder[] = result.orders ?? result.data ?? [];
+
+        for (const order of orders) {
+            const { data: savedOrder, error: orderError } = await admin
+                .from("external_orders")
+                .upsert(
+                    {
+                        store_id: storeId,
+                        provider: "TOSS",
+                        external_order_id: order.orderId,
+                        order_state: order.orderState,
+                        ordered_at: order.orderedAt,
+                        completed_at: order.completedAt ?? null,
+                        cancelled_at: order.cancelledAt ?? null,
+                        total_amount: order.totalAmount ?? null,
+                        raw_json: order,
+                        synced_at: new Date().toISOString(),
+                    },
+                    {
+                        onConflict: "store_id,provider,external_order_id",
+                    }
+                )
+                .select("*")
+                .single();
+
+            if (orderError) {
+                throw new Error(orderError.message);
+            }
+
+            await admin
+                .from("external_order_items")
+                .delete()
+                .eq("external_order_row_id", savedOrder.id);
+
+            for (const item of order.lineItems ?? []) {
+                const { error: itemError } = await admin
+                    .from("external_order_items")
+                    .insert({
+                        external_order_row_id: savedOrder.id,
+                        external_item_id: item.itemId ?? null,
+                        title: item.title,
+                        quantity: item.quantity,
+                        raw_options_json: item.options ?? null,
+                    });
+
+                if (itemError) {
+                    throw new Error(itemError.message);
+                }
+            }
+        }
+
+        const { error: updateError } = await admin
             .from("pos_connections")
             .update({
                 last_order_sync_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
             })
             .eq("id", connection.id);
 
@@ -132,9 +178,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             ok: true,
-            syncedCount,
-            from: from.toISOString(),
-            to: to.toISOString(),
+            count: orders.length,
         });
     } catch (error) {
         return NextResponse.json(

@@ -2,13 +2,11 @@ import AccountTable from "@/components/accounts/AccountTable";
 import CreateAccountForm from "@/components/accounts/CreateAccountForm";
 import { getMerchantAccounts } from "@/lib/api/merchant-accounts";
 import { getMerchants } from "@/lib/api/merchants";
-import { getWorkspaces } from "@/lib/api/workspaces";
 
 export default async function AccountsPage() {
-    const [accounts, merchants, workspaces] = await Promise.all([
+    const [accounts, merchants] = await Promise.all([
         getMerchantAccounts(),
         getMerchants(),
-        getWorkspaces(),
     ]);
 
     const merchantMap = new Map(
@@ -38,10 +36,6 @@ export default async function AccountsPage() {
                     merchants={merchants.map((merchant) => ({
                         value: merchant.id,
                         label: merchant.name,
-                    }))}
-                    workspaces={workspaces.map((workspace) => ({
-                        value: workspace.id,
-                        label: workspace.name,
                     }))}
                 />
             </div>

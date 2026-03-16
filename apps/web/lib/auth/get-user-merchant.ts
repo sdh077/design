@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 
-export async function getUserWorkspaceIds() {
+export async function getCurrentMerchantAccount() {
     const supabase = await createClient();
 
     const {
@@ -9,18 +9,19 @@ export async function getUserWorkspaceIds() {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-        return [];
+        return null;
     }
 
     const { data, error } = await supabase
-        .from("memberships")
-        .select("workspace_id")
-        .eq("user_id", user.id);
+        .from("merchant_accounts")
+        .select("*")
+        .eq("auth_user_id", user.id)
+        .maybeSingle();
 
     if (error) {
-        console.error("[getUserWorkspaceIds]", error);
-        return [];
+        console.error("[getCurrentMerchantAccount]", error);
+        return null;
     }
 
-    return [...new Set((data ?? []).map((item) => item.workspace_id))];
+    return data;
 }

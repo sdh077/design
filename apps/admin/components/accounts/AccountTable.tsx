@@ -21,6 +21,7 @@ export default function AccountTable({ accounts }: AccountTableProps) {
                         <th className="px-4 py-3 font-medium">가맹점</th>
                         <th className="px-4 py-3 font-medium">권한</th>
                         <th className="px-4 py-3 font-medium">상태</th>
+                        <th className="px-4 py-3 font-medium">로그인 연결</th>
                         <th className="px-4 py-3 font-medium">생성일</th>
                     </tr>
                 </thead>
@@ -46,6 +47,9 @@ export default function AccountTable({ accounts }: AccountTableProps) {
                                 <MerchantAccountStatusBadge status={account.status} />
                             </td>
                             <td className="px-4 py-3 text-muted-foreground">
+                                {account.auth_user_id ? "연결됨" : "미연결"}
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">
                                 {new Date(account.created_at).toLocaleDateString("ko-KR")}
                             </td>
                         </tr>
@@ -54,7 +58,7 @@ export default function AccountTable({ accounts }: AccountTableProps) {
                     {accounts.length === 0 && (
                         <tr>
                             <td
-                                colSpan={6}
+                                colSpan={7}
                                 className="px-4 py-10 text-center text-muted-foreground"
                             >
                                 등록된 계정이 없습니다.

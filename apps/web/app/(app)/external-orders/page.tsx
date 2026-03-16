@@ -10,21 +10,23 @@ import { createClient } from "@/lib/supabase/server";
 import { getAccessibleStores } from "@/lib/store/get-accessible-stores";
 import { SyncButtons } from "@/components/pos/SyncButtons";
 
-type PosConnectionRow = {
+type ExternalOrderRow = {
     id: string;
     store_id: string;
     provider: string;
-    merchant_id: string;
-    access_key: string;
-    secret_key: string;
-    is_active: boolean;
-    last_catalog_sync_at: string | null;
-    last_order_sync_at: string | null;
+    external_order_id: string;
+    order_state: string;
+    ordered_at: string;
+    completed_at: string | null;
+    cancelled_at: string | null;
+    total_amount: number | null;
+    raw_json: unknown;
+    synced_at: string;
     created_at: string;
     updated_at: string;
 };
 
-export default async function PosConnectionsPage() {
+export default async function ExternalOrdersPage() {
     const supabase = await createClient();
 
     const {
@@ -38,51 +40,53 @@ export default async function PosConnectionsPage() {
     const stores = await getAccessibleStores();
     const storeIds = stores.map((store) => store.id);
 
-    let connections: PosConnectionRow[] = [];
+    let orders: ExternalOrderRow[] = [];
 
     if (storeIds.length > 0) {
         const { data, error } = await supabase
-            .from("pos_connections")
+            .from("external_orders")
             .select("*")
             .in("store_id", storeIds)
-            .order("created_at", { ascending: false });
+            .order("ordered_at", { ascending: false });
 
         if (error) {
             throw new Error(error.message);
         }
 
-        connections = (data ?? []) as PosConnectionRow[];
+        orders = (data ?? []) as ExternalOrderRow[];
     }
 
     const storeNameById = new Map(
         stores.map((store) => [String(store.id), String(store.name)])
     );
 
-    const activeCount = connections.filter((item) => item.is_active).length;
+    const completedCount = orders.filter(
+        (order) => order.order_state === "COMPLETED"
+    ).length;
 
     return (
         <div className="space-y-6">
             <PageHeader
-                title="POS 연동 현황"
-                description="내 가맹점 매장의 POS 연동 상태를 확인합니다."
+                title="외부 주문 현황"
+                description="내 가맹점 매장으로 들어온 외부 주문을 확인합니다."
             />
 
             <div className="grid gap-4 md:grid-cols-3">
                 <Card>
                     <CardHeader>
-                        <CardTitle>연결 수</CardTitle>
+                        <CardTitle>전체 주문 수</CardTitle>
                     </CardHeader>
                     <CardContent className="text-2xl font-bold">
-                        {connections.length}
+                        {orders.length}
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>활성 연결</CardTitle>
+                        <CardTitle>완료 주문 수</CardTitle>
                     </CardHeader>
                     <CardContent className="text-2xl font-bold">
-                        {activeCount}
+                        {completedCount}
                     </CardContent>
                 </Card>
 
@@ -98,60 +102,61 @@ export default async function PosConnectionsPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>연동 목록</CardTitle>
+                    <CardTitle>주문 목록</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {connections.length === 0 ? (
+                    {orders.length === 0 ? (
                         <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-                            연결된 POS 정보가 없습니다.
+                            외부 주문 데이터가 없습니다.
                         </div>
                     ) : (
-                        connections.map((connection) => (
+                        orders.map((order) => (
                             <div
-                                key={connection.id}
+                                key={order.id}
                                 className="rounded-xl border border-border p-4"
                             >
                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                     <div>
                                         <div className="font-medium">
-                                            {storeNameById.get(String(connection.store_id)) ?? "-"}
+                                            {storeNameById.get(String(order.store_id)) ?? "-"}
                                         </div>
                                         <div className="mt-1 text-sm text-muted-foreground">
-                                            provider: {connection.provider}
+                                            {order.provider} / 주문번호: {order.external_order_id}
                                         </div>
                                     </div>
 
-                                    <div
-                                        className={`rounded-full px-3 py-1 text-xs font-medium ${connection.is_active
-                                            ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                                            : "border border-zinc-500/30 bg-zinc-500/10 text-zinc-300"
-                                            }`}
-                                    >
-                                        {connection.is_active ? "ACTIVE" : "INACTIVE"}
+                                    <div className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground">
+                                        {order.order_state}
                                     </div>
                                 </div>
 
                                 <div className="mt-3 grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
                                     <div>
-                                        마지막 카탈로그 동기화:{" "}
-                                        {connection.last_catalog_sync_at
-                                            ? new Date(connection.last_catalog_sync_at).toLocaleString(
-                                                "ko-KR"
-                                            )
+                                        주문시각:{" "}
+                                        {new Date(order.ordered_at).toLocaleString("ko-KR")}
+                                    </div>
+                                    <div>
+                                        금액:{" "}
+                                        {order.total_amount != null
+                                            ? `${order.total_amount.toLocaleString("ko-KR")}원`
                                             : "-"}
                                     </div>
                                     <div>
-                                        마지막 주문 동기화:{" "}
-                                        {connection.last_order_sync_at
-                                            ? new Date(connection.last_order_sync_at).toLocaleString(
-                                                "ko-KR"
-                                            )
+                                        완료시각:{" "}
+                                        {order.completed_at
+                                            ? new Date(order.completed_at).toLocaleString("ko-KR")
+                                            : "-"}
+                                    </div>
+                                    <div>
+                                        취소시각:{" "}
+                                        {order.cancelled_at
+                                            ? new Date(order.cancelled_at).toLocaleString("ko-KR")
                                             : "-"}
                                     </div>
                                 </div>
 
                                 <div className="mt-4">
-                                    <SyncButtons storeId={connection.store_id} />
+                                    <SyncButtons storeId={order.store_id} />
                                 </div>
                             </div>
                         ))

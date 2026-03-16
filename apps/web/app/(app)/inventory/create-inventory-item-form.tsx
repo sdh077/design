@@ -53,9 +53,9 @@ export function CreateInventoryItemForm({
     return (
         <div className="space-y-3">
             <select
-                className="h-10 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-zinc-600"
                 value={storeId}
                 onChange={(e) => setStoreId(e.target.value)}
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
             >
                 {stores.map((store) => (
                     <option key={store.id} value={store.id}>
@@ -65,19 +65,19 @@ export function CreateInventoryItemForm({
             </select>
 
             <Input
-                placeholder="품목명 (예: 우유, 원두, 치즈)"
+                placeholder="재고 품목명"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
             />
 
             <Input
-                placeholder="기준 단위 (예: ml, g, ea)"
+                placeholder="기준 단위 (예: g, ml, ea)"
                 value={baseUnit}
                 onChange={(e) => setBaseUnit(e.target.value)}
             />
 
             <Input
-                placeholder="안전재고"
+                placeholder="안전 재고"
                 type="number"
                 value={safetyStock}
                 onChange={(e) => setSafetyStock(e.target.value)}

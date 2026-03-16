@@ -9,19 +9,16 @@ interface Option {
 }
 
 interface CreateStoreFormProps {
-    workspaces: Option[];
     merchants: Option[];
 }
 
 export default function CreateStoreForm({
-    workspaces,
     merchants,
 }: CreateStoreFormProps) {
     const router = useRouter();
 
     const [isOpen, setIsOpen] = useState(false);
-    const [workspaceId, setWorkspaceId] = useState(workspaces[0]?.value ?? "");
-    const [merchantId, setMerchantId] = useState("");
+    const [merchantId, setMerchantId] = useState(merchants[0]?.value ?? "");
     const [name, setName] = useState("");
     const [code, setCode] = useState("");
     const [timezone, setTimezone] = useState("Asia/Seoul");
@@ -43,8 +40,7 @@ export default function CreateStoreForm({
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    workspace_id: workspaceId,
-                    merchant_id: merchantId || null,
+                    merchant_id: merchantId,
                     name,
                     code,
                     timezone,
@@ -61,8 +57,7 @@ export default function CreateStoreForm({
             }
 
             setIsOpen(false);
-            setWorkspaceId(workspaces[0]?.value ?? "");
-            setMerchantId("");
+            setMerchantId(merchants[0]?.value ?? "");
             setName("");
             setCode("");
             setTimezone("Asia/Seoul");
@@ -95,36 +90,20 @@ export default function CreateStoreForm({
                         <div className="mb-4">
                             <h2 className="text-lg font-semibold text-foreground">매장 추가</h2>
                             <p className="mt-1 text-sm text-muted-foreground">
-                                워크스페이스와 가맹점을 선택해 새 매장을 등록합니다.
+                                가맹점에 새 매장을 등록합니다.
                             </p>
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="grid gap-4 md:grid-cols-2">
                                 <label className="space-y-2">
-                                    <span className="text-sm text-muted-foreground">워크스페이스</span>
-                                    <select
-                                        value={workspaceId}
-                                        onChange={(e) => setWorkspaceId(e.target.value)}
-                                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
-                                        required
-                                    >
-                                        {workspaces.map((workspace) => (
-                                            <option key={workspace.value} value={workspace.value}>
-                                                {workspace.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
-
-                                <label className="space-y-2">
                                     <span className="text-sm text-muted-foreground">가맹점</span>
                                     <select
                                         value={merchantId}
                                         onChange={(e) => setMerchantId(e.target.value)}
                                         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
+                                        required
                                     >
-                                        <option value="">미지정</option>
                                         {merchants.map((merchant) => (
                                             <option key={merchant.value} value={merchant.value}>
                                                 {merchant.label}
@@ -139,7 +118,6 @@ export default function CreateStoreForm({
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
                                         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
-                                        placeholder="예: 성수 2호점"
                                         required
                                     />
                                 </label>
@@ -150,7 +128,6 @@ export default function CreateStoreForm({
                                         value={code}
                                         onChange={(e) => setCode(e.target.value)}
                                         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
-                                        placeholder="예: SS002"
                                     />
                                 </label>
 
@@ -184,7 +161,6 @@ export default function CreateStoreForm({
                                     value={address}
                                     onChange={(e) => setAddress(e.target.value)}
                                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
-                                    placeholder="서울 성동구 ..."
                                 />
                             </label>
 
@@ -194,7 +170,6 @@ export default function CreateStoreForm({
                                     value={phone}
                                     onChange={(e) => setPhone(e.target.value)}
                                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
-                                    placeholder="02-123-4567"
                                 />
                             </label>
 

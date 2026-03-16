@@ -10,18 +10,15 @@ interface Option {
 
 interface CreateAccountFormProps {
     merchants: Option[];
-    workspaces: Option[];
 }
 
 export default function CreateAccountForm({
     merchants,
-    workspaces,
 }: CreateAccountFormProps) {
     const router = useRouter();
 
     const [isOpen, setIsOpen] = useState(false);
     const [merchantId, setMerchantId] = useState(merchants[0]?.value ?? "");
-    const [workspaceId, setWorkspaceId] = useState(workspaces[0]?.value ?? "");
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -43,7 +40,6 @@ export default function CreateAccountForm({
                 },
                 body: JSON.stringify({
                     merchant_id: merchantId,
-                    workspace_id: workspaceId,
                     name,
                     email,
                     password,
@@ -60,7 +56,6 @@ export default function CreateAccountForm({
 
             setIsOpen(false);
             setMerchantId(merchants[0]?.value ?? "");
-            setWorkspaceId(workspaces[0]?.value ?? "");
             setName("");
             setEmail("");
             setPassword("");
@@ -92,7 +87,7 @@ export default function CreateAccountForm({
                         <div className="mb-4">
                             <h2 className="text-lg font-semibold text-foreground">계정 추가</h2>
                             <p className="mt-1 text-sm text-muted-foreground">
-                                로그인 가능한 계정과 가맹점 관리자 정보를 함께 생성합니다.
+                                로그인 가능한 가맹점 관리자 계정을 생성합니다.
                             </p>
                         </div>
 
@@ -113,22 +108,6 @@ export default function CreateAccountForm({
                                 </select>
                             </label>
 
-                            <label className="block space-y-2">
-                                <span className="text-sm text-muted-foreground">워크스페이스</span>
-                                <select
-                                    value={workspaceId}
-                                    onChange={(e) => setWorkspaceId(e.target.value)}
-                                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
-                                    required
-                                >
-                                    {workspaces.map((workspace) => (
-                                        <option key={workspace.value} value={workspace.value}>
-                                            {workspace.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-
                             <div className="grid gap-4 md:grid-cols-2">
                                 <label className="space-y-2">
                                     <span className="text-sm text-muted-foreground">이름</span>
@@ -136,7 +115,6 @@ export default function CreateAccountForm({
                                         value={name}
                                         onChange={(e) => setName(e.target.value)}
                                         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
-                                        placeholder="홍길동"
                                         required
                                     />
                                 </label>
@@ -148,7 +126,6 @@ export default function CreateAccountForm({
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
-                                        placeholder="admin@example.com"
                                         required
                                     />
                                 </label>
@@ -160,7 +137,6 @@ export default function CreateAccountForm({
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none"
-                                        placeholder="8자 이상 권장"
                                         required
                                     />
                                 </label>

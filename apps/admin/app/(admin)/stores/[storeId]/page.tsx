@@ -4,7 +4,6 @@ import MenuTable from "@/components/menus/MenuTable";
 import { getMerchantById } from "@/lib/api/merchants";
 import { getMenusByStoreId } from "@/lib/api/menus";
 import { getStoreById } from "@/lib/api/stores";
-import { getWorkspaceById } from "@/lib/api/workspaces";
 
 interface StoreDetailPageProps {
     params: Promise<{
@@ -23,9 +22,8 @@ export default async function StoreDetailPage({
         notFound();
     }
 
-    const [merchant, workspace, menus] = await Promise.all([
-        store.merchant_id ? getMerchantById(store.merchant_id) : Promise.resolve(null),
-        getWorkspaceById(store.workspace_id),
+    const [merchant, menus] = await Promise.all([
+        getMerchantById(store.merchant_id),
         getMenusByStoreId(storeId),
     ]);
 
@@ -35,7 +33,7 @@ export default async function StoreDetailPage({
         <div className="space-y-6">
             <div className="mb-2">
                 <Link
-                    href={store.merchant_id ? `/merchants/${store.merchant_id}` : "/merchants"}
+                    href={`/merchants/${store.merchant_id}`}
                     className="text-sm text-muted-foreground hover:text-foreground"
                 >
                     ← 가맹점으로 돌아가기
@@ -62,13 +60,6 @@ export default async function StoreDetailPage({
                         <p className="text-sm text-muted-foreground">가맹점</p>
                         <p className="mt-1 text-base font-medium text-foreground">
                             {merchant?.name ?? "-"}
-                        </p>
-                    </div>
-
-                    <div>
-                        <p className="text-sm text-muted-foreground">워크스페이스</p>
-                        <p className="mt-1 text-base font-medium text-foreground">
-                            {workspace?.name ?? "-"}
                         </p>
                     </div>
 
@@ -100,7 +91,7 @@ export default async function StoreDetailPage({
                         </p>
                     </div>
 
-                    <div>
+                    <div className="md:col-span-2">
                         <p className="text-sm text-muted-foreground">주소</p>
                         <p className="mt-1 text-base font-medium text-foreground">
                             {store.address ?? "-"}

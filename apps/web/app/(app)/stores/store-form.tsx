@@ -3,17 +3,16 @@
 import { useState } from "react";
 import { Button, Input } from "@workspace/ui";
 
-type WorkspaceOption = {
+type MerchantOption = {
     id: string;
     name: string;
-};
+} | null;
 
-export function CreateStoreForm({
-    workspaces,
-}: {
-    workspaces: WorkspaceOption[];
-}) {
-    const [workspaceId, setWorkspaceId] = useState(workspaces[0]?.id ?? "");
+interface CreateStoreFormProps {
+    merchant: MerchantOption;
+}
+
+export function CreateStoreForm({ merchant }: CreateStoreFormProps) {
     const [name, setName] = useState("");
     const [code, setCode] = useState("");
     const [timezone, setTimezone] = useState("Asia/Seoul");
@@ -21,6 +20,10 @@ export function CreateStoreForm({
 
     const onSubmit = async () => {
         try {
+            if (!merchant?.id) {
+                throw new Error("가맹점 정보가 없습니다.");
+            }
+
             setLoading(true);
 
             const res = await fetch("/api/stores", {
@@ -29,7 +32,7 @@ export function CreateStoreForm({
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    workspaceId,
+                    merchant_id: merchant.id,
                     name,
                     code,
                     timezone,
@@ -50,19 +53,20 @@ export function CreateStoreForm({
         }
     };
 
+    if (!merchant) {
+        return (
+            <div className="rounded-xl border border-red-900 bg-red-950/40 p-3 text-sm text-red-300">
+                가맹점 정보가 없어 매장을 생성할 수 없습니다.
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-3">
-            <select
-                className="h-10 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-zinc-600"
-                value={workspaceId}
-                onChange={(e) => setWorkspaceId(e.target.value)}
-            >
-                {workspaces.map((workspace) => (
-                    <option key={workspace.id} value={workspace.id}>
-                        {workspace.name}
-                    </option>
-                ))}
-            </select>
+            <div className="rounded-xl border border-border bg-background/50 p-3">
+                <div className="text-sm text-muted-foreground">가맹점</div>
+                <div className="mt-1 font-medium text-foreground">{merchant.name}</div>
+            </div>
 
             <Input
                 placeholder="매장명"
@@ -71,18 +75,21 @@ export function CreateStoreForm({
             />
 
             <Input
-                placeholder="코드(선택)"
+                placeholder="매장 코드"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
             />
 
             <Input
-                placeholder="Timezone"
+                placeholder="타임존"
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
             />
 
-            <Button onClick={onSubmit} disabled={loading || !workspaceId || !name}>
+            <Button
+                onClick={onSubmit}
+                disabled={loading || !merchant?.id || !name.trim()}
+            >
                 {loading ? "생성 중..." : "매장 생성"}
             </Button>
         </div>

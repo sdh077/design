@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { TossClient } from "@/lib/toss-client";
+
+type TossCatalogItem = {
+    itemId: string;
+    title: string;
+    code?: string;
+    description?: string;
+    imageUrl?: string;
+};
 
 export async function POST(req: NextRequest) {
     try {
@@ -14,74 +22,118 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const supabase = createAdminClient();
+        const supabase = await createClient();
+        const admin = createAdminClient();
 
-        const { data: connection, error: connectionError } = await supabase
-            .from("pos_connections")
-            .select("*")
-            .eq("store_id", storeId)
-            .eq("provider", "TOSS_PLACE")
-            .eq("is_active", true)
-            .single();
+        const {
+            data: { user },
+            error: userError,
+        } = await supabase.auth.getUser();
 
-        if (connectionError || !connection) {
+        if (userError || !user) {
             return NextResponse.json(
-                { ok: false, message: "POS connection not found" },
+                { ok: false, message: "로그인이 필요합니다." },
+                { status: 401 }
+            );
+        }
+
+        const { data: merchantAccount, error: accountError } = await admin
+            .from("merchant_accounts")
+            .select("merchant_id")
+            .eq("auth_user_id", user.id)
+            .maybeSingle();
+
+        if (accountError || !merchantAccount?.merchant_id) {
+            return NextResponse.json(
+                { ok: false, message: "가맹점 계정 정보가 없습니다." },
+                { status: 403 }
+            );
+        }
+
+        const { data: store, error: storeError } = await admin
+            .from("stores")
+            .select("id, merchant_id")
+            .eq("id", storeId)
+            .maybeSingle();
+
+        if (storeError || !store) {
+            return NextResponse.json(
+                { ok: false, message: "매장을 찾을 수 없습니다." },
                 { status: 404 }
             );
         }
 
-        const client = new TossClient(
-            process.env.TOSS_BASE_URL!,
-            connection.access_key,
-            connection.secret_key,
-            connection.merchant_id
+        if (store.merchant_id !== merchantAccount.merchant_id) {
+            return NextResponse.json(
+                { ok: false, message: "해당 매장에 접근할 수 없습니다." },
+                { status: 403 }
+            );
+        }
+
+        const { data: connection, error: connectionError } = await admin
+            .from("pos_connections")
+            .select("*")
+            .eq("store_id", storeId)
+            .eq("provider", "TOSS")
+            .maybeSingle();
+
+        if (connectionError) {
+            throw new Error(connectionError.message);
+        }
+
+        if (!connection) {
+            return NextResponse.json(
+                { ok: false, message: "POS 연결 정보가 없습니다." },
+                { status: 404 }
+            );
+        }
+
+        const response = await fetch(
+            `https://api.tossplace.com/api-public/openapi/v1/merchants/${connection.merchant_id}/catalog/items`,
+            {
+                headers: {
+                    Authorization: `Bearer ${connection.access_key}`,
+                    "Content-Type": "application/json",
+                },
+                cache: "no-store",
+            }
         );
 
-        let page = 1;
-        const size = 100;
-        let syncedCount = 0;
+        if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`토스 카탈로그 조회 실패: ${text}`);
+        }
 
-        while (true) {
-            const items = await client.getCatalogItems(page, size);
-            if (items.length === 0) break;
+        const result = await response.json();
+        const items: TossCatalogItem[] = result.items ?? result.data ?? [];
 
-            for (const item of items) {
-                const payload = {
+        for (const item of items) {
+            const { error } = await admin.from("external_catalog_items").upsert(
+                {
                     store_id: storeId,
-                    provider: "TOSS_PLACE",
-                    external_item_id: item.id,
+                    provider: "TOSS",
+                    external_item_id: item.itemId,
                     title: item.title,
                     code: item.code ?? null,
                     description: item.description ?? null,
                     image_url: item.imageUrl ?? null,
                     raw_json: item,
                     synced_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                };
-
-                const { error } = await supabase
-                    .from("external_catalog_items")
-                    .upsert(payload, {
-                        onConflict: "store_id,provider,external_item_id",
-                    });
-
-                if (error) {
-                    throw new Error(error.message);
+                },
+                {
+                    onConflict: "store_id,provider,external_item_id",
                 }
+            );
 
-                syncedCount += 1;
+            if (error) {
+                throw new Error(error.message);
             }
-
-            if (items.length < size) break;
-            page += 1;
         }
 
-        const { error: updateError } = await supabase
+        const { error: updateError } = await admin
             .from("pos_connections")
             .update({
                 last_catalog_sync_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
             })
             .eq("id", connection.id);
 
@@ -91,7 +143,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             ok: true,
-            syncedCount,
+            count: items.length,
         });
     } catch (error) {
         return NextResponse.json(

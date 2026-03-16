@@ -2,29 +2,21 @@ import CreateStoreForm from "@/components/stores/CreateStoreForm";
 import StoreTable from "@/components/stores/StoreTable";
 import { getMerchants } from "@/lib/api/merchants";
 import { getStores } from "@/lib/api/stores";
-import { getWorkspaceById, getWorkspaces } from "@/lib/api/workspaces";
 
 export default async function StoresPage() {
-    const [stores, merchants, workspaces] = await Promise.all([
+    const [stores, merchants] = await Promise.all([
         getStores(),
         getMerchants(),
-        getWorkspaces(),
     ]);
 
     const merchantMap = new Map(
         merchants.map((merchant) => [merchant.id, merchant.name])
     );
 
-    const workspaceMap = new Map(
-        workspaces.map((workspace) => [workspace.id, workspace.name])
-    );
-
     const rows = stores.map((store) => ({
         ...store,
-        merchantName: store.merchant_id
-            ? merchantMap.get(store.merchant_id) ?? null
-            : null,
-        workspaceName: workspaceMap.get(store.workspace_id) ?? null,
+        merchantName: merchantMap.get(store.merchant_id) ?? null,
+        workspaceName: null,
     }));
 
     const activeCount = stores.filter((store) => store.status === "ACTIVE").length;
@@ -40,10 +32,6 @@ export default async function StoresPage() {
                 </div>
 
                 <CreateStoreForm
-                    workspaces={workspaces.map((workspace) => ({
-                        value: workspace.id,
-                        label: workspace.name,
-                    }))}
                     merchants={merchants.map((merchant) => ({
                         value: merchant.id,
                         label: merchant.name,
@@ -67,9 +55,9 @@ export default async function StoresPage() {
                 </div>
 
                 <div className="rounded-2xl border border-border bg-card p-5">
-                    <p className="text-sm text-muted-foreground">워크스페이스 수</p>
+                    <p className="text-sm text-muted-foreground">가맹점 수</p>
                     <p className="mt-2 text-2xl font-bold text-foreground">
-                        {workspaces.length}
+                        {merchants.length}
                     </p>
                 </div>
             </div>

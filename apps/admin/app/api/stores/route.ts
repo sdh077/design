@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase/client";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
 
         const {
-            workspace_id,
             merchant_id,
             name,
             code,
@@ -14,27 +13,35 @@ export async function POST(req: Request) {
             address,
             phone,
             status,
-        } = body;
+        } = body as {
+            merchant_id?: string;
+            name?: string;
+            code?: string;
+            timezone?: string;
+            address?: string;
+            phone?: string;
+            status?: string;
+        };
 
-        if (!workspace_id || !name || !timezone) {
+        if (!merchant_id || !name || !timezone) {
             return NextResponse.json(
-                { message: "workspace_id, name, timezone은 필수입니다." },
+                { message: "merchant_id, name, timezone은 필수입니다." },
                 { status: 400 }
             );
         }
 
         const payload = {
-            workspace_id,
-            merchant_id: merchant_id || null,
+            merchant_id,
             name,
             code: code || null,
             timezone,
             address: address || null,
             phone: phone || null,
             status: status || "ACTIVE",
+            workspace_id: null,
         };
 
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from("stores")
             .insert(payload)
             .select("*")
@@ -42,6 +49,7 @@ export async function POST(req: Request) {
 
         if (error) {
             console.error("[POST /api/stores]", error);
+
             return NextResponse.json(
                 { message: "매장 생성에 실패했습니다." },
                 { status: 500 }

@@ -44,6 +44,7 @@ export default async function AppLayout({
                         <div className="space-y-1">
                             <NavLink href="/stores">매장 관리</NavLink>
                             <NavLink href="/pos-connections">POS 연결</NavLink>
+                            <NavLink href="/external-orders">외부 주문 현황</NavLink>
                         </div>
                     </SidebarGroup>
 

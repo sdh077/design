@@ -1,10 +1,9 @@
 import Link from "next/link";
-import type { Merchant } from "@/lib/types/merchant";
 import type { Store } from "@/lib/types/store";
 
 interface StoreTableRow extends Store {
     merchantName: string | null;
-    workspaceName: string | null;
+    workspaceName?: string | null;
 }
 
 interface StoreTableProps {
@@ -19,7 +18,6 @@ export default function StoreTable({ stores }: StoreTableProps) {
                     <tr className="border-b border-border">
                         <th className="px-4 py-3 font-medium">매장명</th>
                         <th className="px-4 py-3 font-medium">가맹점</th>
-                        <th className="px-4 py-3 font-medium">워크스페이스</th>
                         <th className="px-4 py-3 font-medium">코드</th>
                         <th className="px-4 py-3 font-medium">연락처</th>
                         <th className="px-4 py-3 font-medium">상태</th>
@@ -32,18 +30,12 @@ export default function StoreTable({ stores }: StoreTableProps) {
                             className="border-b border-border/70 last:border-b-0"
                         >
                             <td className="px-4 py-3 font-medium text-foreground">
-                                <Link
-                                    href={`/stores/${store.id}`}
-                                    className="hover:text-blue-400"
-                                >
+                                <Link href={`/stores/${store.id}`} className="hover:text-blue-400">
                                     {store.name}
                                 </Link>
                             </td>
                             <td className="px-4 py-3 text-muted-foreground">
                                 {store.merchantName ?? "-"}
-                            </td>
-                            <td className="px-4 py-3 text-muted-foreground">
-                                {store.workspaceName ?? "-"}
                             </td>
                             <td className="px-4 py-3 text-muted-foreground">
                                 {store.code ?? "-"}
@@ -60,7 +52,7 @@ export default function StoreTable({ stores }: StoreTableProps) {
                     {stores.length === 0 && (
                         <tr>
                             <td
-                                colSpan={6}
+                                colSpan={5}
                                 className="px-4 py-10 text-center text-muted-foreground"
                             >
                                 등록된 매장이 없습니다.
