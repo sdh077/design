@@ -8,12 +8,19 @@ import {
     SidebarHeader,
     Topbar,
 } from "@workspace/ui";
+import { createClient } from "@/lib/supabase/server";
+import { LogoutButton } from "./logout-button";
 
-export default function AppLayout({
+export default async function AppLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
     return (
         <div className="flex min-h-screen bg-zinc-950 text-zinc-100">
             <Sidebar>
@@ -47,6 +54,7 @@ export default function AppLayout({
                             <NavLink href="/inventory">재고</NavLink>
                             <NavLink href="/recipes">레시피</NavLink>
                             <NavLink href="/consumption">소모량</NavLink>
+                            <NavLink href="/recipe-calibration">레시피 보정</NavLink>
                         </div>
                     </SidebarGroup>
                 </SidebarContent>
@@ -59,8 +67,11 @@ export default function AppLayout({
                         <div className="text-xs text-zinc-500">운영 대시보드</div>
                     </div>
 
-                    <div className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-300">
-                        Owner
+                    <div className="flex items-center gap-3">
+                        <div className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm text-zinc-300">
+                            {user?.email ?? "Unknown"}
+                        </div>
+                        <LogoutButton />
                     </div>
                 </Topbar>
 
