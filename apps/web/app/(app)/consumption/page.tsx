@@ -3,17 +3,11 @@ import { PageHeader } from "@workspace/ui";
 import { createClient } from "@/lib/supabase/server";
 import { getAccessibleStores } from "@/lib/store/get-accessible-stores";
 import { ConsumptionClient } from "./consumption-client";
+import { requireUser } from "@/lib/auth/require-user";
 
 export default async function ConsumptionPage() {
-  const supabase = await createClient();
+  await requireUser();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
 
   const stores = await getAccessibleStores();
 

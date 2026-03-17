@@ -9,18 +9,10 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { getAccessibleStores } from "@/lib/store/get-accessible-stores";
 import { CreateInventoryItemForm } from "./create-inventory-item-form";
+import { requireUser } from "@/lib/auth/require-user";
 
 export default async function InventoryPage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
-
+  await requireUser();
   const stores = await getAccessibleStores();
   const storeIds = stores.map((store) => store.id);
 

@@ -10,17 +10,10 @@ import { CreateStoreForm } from "./store-form";
 import { createClient } from "@/lib/supabase/server";
 import { getAccessibleStores } from "@/lib/store/get-accessible-stores";
 import { getCurrentMerchantAccount } from "@/lib/auth/get-user-merchant";
+import { requireUser } from "@/lib/auth/require-user";
 
 export default async function StoresPage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase } = await requireUser()
 
   const [account, stores] = await Promise.all([
     getCurrentMerchantAccount(),

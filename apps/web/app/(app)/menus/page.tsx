@@ -9,6 +9,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { getAccessibleStores } from "@/lib/store/get-accessible-stores";
 import { CreateMenuForm } from "./create-menu-form";
+import { requireUser } from "@/lib/auth/require-user";
 
 type MenuRow = {
   id: string;
@@ -20,15 +21,7 @@ type MenuRow = {
 };
 
 export default async function MenusPage() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const { supabase } = await requireUser();
 
   const stores = await getAccessibleStores();
   const storeIds = stores.map((store) => store.id);
