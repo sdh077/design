@@ -12,7 +12,7 @@ import { CreateInventoryItemForm } from "./create-inventory-item-form";
 import { requireUser } from "@/lib/auth/require-user";
 
 export default async function InventoryPage() {
-  await requireUser();
+  const { supabase } = await requireUser();
   const stores = await getAccessibleStores();
   const storeIds = stores.map((store) => store.id);
 
