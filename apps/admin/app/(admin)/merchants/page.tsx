@@ -23,11 +23,11 @@ export default async function MerchantsPage() {
         },
         {}
     );
-
     const merchantsWithStoreCount = merchants.map((merchant) => ({
         ...merchant,
         storeCount: storeCountMap[merchant.id] ?? 0,
     }));
+    console.log(merchants, merchantsWithStoreCount)
 
     const activeCount = merchants.filter((item) => item.status === "ACTIVE").length;
     const pendingCount = merchants.filter((item) => item.status === "PENDING").length;
