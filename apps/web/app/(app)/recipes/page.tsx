@@ -1,127 +1,117 @@
-import { redirect } from "next/navigation";
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    PageHeader,
-} from "@workspace/ui";
-import { createClient } from "@/lib/supabase/server";
+import { Card, CardContent, CardHeader, CardTitle, PageHeader } from "@workspace/ui";
+import { requireUser } from "@/lib/auth/require-user";
 import { getAccessibleStores } from "@/lib/store/get-accessible-stores";
-import { CreateRecipeForm } from "./create-recipe-form";
-import { RecipeLineManager } from "./recipe-line-manager";
+import { RecipesSimpleEditor } from "@/components/recipes/recipes-simple-editor";
 
-type Recipe = {
+type MenuRow = {
     id: string;
-    store_id: string;
-    menu_id: string;
-    created_at: string;
-};
-
-type Menu = {
-    id: string;
-    store_id: string;
     name: string;
     is_active: boolean;
 };
 
+type InventoryItemRow = {
+    id: string;
+    name: string;
+    base_unit: string;
+    is_active: boolean;
+};
+
+type RecipeRow = {
+    id: string;
+    menu_id: string;
+    name: string | null;
+};
+
+type RecipeLineRow = {
+    id: string;
+    recipe_id: string;
+    inventory_item_id: string;
+    quantity: number;
+    unit: string;
+};
+
 export default async function RecipesPage() {
-    const supabase = await createClient();
+    const { supabase } = await requireUser();
+    const stores = await getAccessibleStores();
+    const defaultStore = stores[0];
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-        redirect("/login");
+    if (!defaultStore) {
+        return (
+            <div className="space-y-6">
+                <PageHeader
+                    title="레시피 관리"
+                    description="매장을 먼저 생성해야 레시피를 관리할 수 있습니다."
+                />
+            </div>
+        );
     }
 
-    const stores = await getAccessibleStores();
-    const storeIds = stores.map((store) => store.id);
+    const storeId = String(defaultStore.id);
 
-    let recipes: Recipe[] = [];
-    let menus: Menu[] = [];
-
-    if (storeIds.length > 0) {
-        const [
-            { data: recipesData, error: recipesError },
-            { data: menusData, error: menusError },
-        ] = await Promise.all([
-            supabase
-                .from("recipes")
-                .select("*")
-                .in("store_id", storeIds)
-                .order("created_at", { ascending: false }),
+    const [{ data: menus, error: menusError }, { data: inventoryItems, error: inventoryError }] =
+        await Promise.all([
             supabase
                 .from("menus")
-                .select("id, store_id, name, is_active")
-                .in("store_id", storeIds)
-                .order("created_at", { ascending: false }),
+                .select("id, name, is_active")
+                .eq("store_id", storeId)
+                .order("name", { ascending: true }),
+            supabase
+                .from("inventory_items")
+                .select("id, name, base_unit, is_active")
+                .eq("store_id", storeId)
+                .eq("is_active", true)
+                .order("name", { ascending: true }),
         ]);
 
-        if (recipesError) throw new Error(recipesError.message);
-        if (menusError) throw new Error(menusError.message);
+    if (menusError) throw new Error(menusError.message);
+    if (inventoryError) throw new Error(inventoryError.message);
 
-        recipes = (recipesData ?? []) as Recipe[];
-        menus = (menusData ?? []) as Menu[];
+    const menuIds = (menus ?? []).map((m) => m.id);
+
+    let recipes: RecipeRow[] = [];
+    let recipeLines: RecipeLineRow[] = [];
+
+    if (menuIds.length > 0) {
+        const { data: recipeData, error: recipeError } = await supabase
+            .from("recipes")
+            .select("id, menu_id, name")
+            .in("menu_id", menuIds);
+
+        if (recipeError) throw new Error(recipeError.message);
+        recipes = (recipeData ?? []) as RecipeRow[];
+
+        const recipeIds = recipes.map((r) => r.id);
+
+        if (recipeIds.length > 0) {
+            const { data: lineData, error: lineError } = await supabase
+                .from("recipe_lines")
+                .select("id, recipe_id, inventory_item_id, quantity, unit")
+                .in("recipe_id", recipeIds);
+
+            if (lineError) throw new Error(lineError.message);
+            recipeLines = (lineData ?? []) as RecipeLineRow[];
+        }
     }
-
-    const menuById = new Map(menus.map((menu) => [menu.id, menu]));
-    const storeNameById = new Map(
-        stores.map((store) => [String(store.id), String(store.name)])
-    );
 
     return (
         <div className="space-y-6">
             <PageHeader
                 title="레시피 관리"
-                description="내 가맹점 매장의 레시피만 관리합니다."
+                description="메뉴별 사용 재료를 빠르게 입력하고 저장합니다."
             />
 
             <Card>
                 <CardHeader>
-                    <CardTitle>레시피 생성</CardTitle>
+                    <CardTitle>{String(defaultStore.name)} 레시피</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <CreateRecipeForm stores={stores} menus={menus} />
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>레시피 목록</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {recipes.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-                            등록된 레시피가 없습니다.
-                        </div>
-                    ) : (
-                        recipes.map((recipe) => {
-                            const menu = menuById.get(recipe.menu_id);
-
-                            return (
-                                <div
-                                    key={recipe.id}
-                                    className="rounded-xl border border-border p-4"
-                                >
-                                    <div className="font-medium">
-                                        {menu?.name ?? "연결된 메뉴 없음"}
-                                    </div>
-                                    <div className="mt-1 text-sm text-muted-foreground">
-                                        매장: {storeNameById.get(String(recipe.store_id)) ?? "-"}
-                                    </div>
-
-                                    <div className="mt-4">
-                                        <RecipeLineManager
-                                            recipeId={recipe.id}
-                                            storeId={recipe.store_id}
-                                        />
-                                    </div>
-                                </div>
-                            );
-                        })
-                    )}
+                    <RecipesSimpleEditor
+                        storeId={storeId}
+                        menus={(menus ?? []) as MenuRow[]}
+                        inventoryItems={(inventoryItems ?? []) as InventoryItemRow[]}
+                        recipes={recipes}
+                        recipeLines={recipeLines}
+                    />
                 </CardContent>
             </Card>
         </div>

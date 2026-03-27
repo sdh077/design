@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
                 cache: "no-store",
             }
         );
-        console.log(response)
+
         if (!response.ok) {
             const text = await response.text();
             throw new Error(`토스 주문 조회 실패: ${text}`);
