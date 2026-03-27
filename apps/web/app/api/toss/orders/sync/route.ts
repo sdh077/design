@@ -83,13 +83,12 @@ export async function POST(req: NextRequest) {
             .from("pos_connections")
             .select("*")
             .eq("store_id", storeId)
-            .eq("provider", "TOSS")
+            .eq("provider", "TOSS_PLACE")
             .maybeSingle();
 
         if (connectionError) {
             throw new Error(connectionError.message);
         }
-
         if (!connection) {
             return NextResponse.json(
                 { ok: false, message: "POS 연결 정보가 없습니다." },
@@ -98,16 +97,17 @@ export async function POST(req: NextRequest) {
         }
 
         const response = await fetch(
-            `https://api.tossplace.com/api-public/openapi/v1/merchants/${connection.merchant_id}/order/orders`,
+            `https://open-api.tossplace.com/api-public/openapi/v1/merchants/${connection.merchant_id}/order/orders`,
             {
                 headers: {
-                    Authorization: `Bearer ${connection.access_key}`,
+                    "x-access-key": connection.access_key,
+                    "x-secret-key": connection.secret_key,
                     "Content-Type": "application/json",
                 },
                 cache: "no-store",
             }
         );
-
+        console.log(response)
         if (!response.ok) {
             const text = await response.text();
             throw new Error(`토스 주문 조회 실패: ${text}`);
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
                 .upsert(
                     {
                         store_id: storeId,
-                        provider: "TOSS",
+                        provider: "TOSS_PLACE",
                         external_order_id: order.orderId,
                         order_state: order.orderState,
                         ordered_at: order.orderedAt,
@@ -181,6 +181,7 @@ export async function POST(req: NextRequest) {
             count: orders.length,
         });
     } catch (error) {
+        console.log('error', error)
         return NextResponse.json(
             {
                 ok: false,

@@ -38,12 +38,6 @@ export async function Header() {
               >
                 로그인
               </Link>
-              <Link
-                href="/signup"
-                className="rounded-xl border border-zinc-200 px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-900"
-              >
-                회원가입
-              </Link>
             </div>
           )}
         </nav>

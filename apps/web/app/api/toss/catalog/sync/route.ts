@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
             .from("pos_connections")
             .select("*")
             .eq("store_id", storeId)
-            .eq("provider", "TOSS")
+            .eq("provider", "TOSS_PLACE")
             .maybeSingle();
 
         if (connectionError) {
@@ -89,10 +89,11 @@ export async function POST(req: NextRequest) {
         }
 
         const response = await fetch(
-            `https://api.tossplace.com/api-public/openapi/v1/merchants/${connection.merchant_id}/catalog/items`,
+            `https://open-api.tossplace.com/api-public/openapi/v1/merchants/${connection.merchant_id}/catalog/items`,
             {
                 headers: {
-                    Authorization: `Bearer ${connection.access_key}`,
+                    "x-access-key": connection.access_key,
+                    "x-secret-key": connection.secret_key,
                     "Content-Type": "application/json",
                 },
                 cache: "no-store",
@@ -111,7 +112,7 @@ export async function POST(req: NextRequest) {
             const { error } = await admin.from("external_catalog_items").upsert(
                 {
                     store_id: storeId,
-                    provider: "TOSS",
+                    provider: "TOSS_PLACE",
                     external_item_id: item.itemId,
                     title: item.title,
                     code: item.code ?? null,

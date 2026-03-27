@@ -6,7 +6,6 @@ import { PlaceList } from "@/components/place-list";
 import { PlaceTabs } from "@/components/place-tabs";
 import type { Place } from "@/types/place";
 import type { PlaceTab } from "@/types/place-tab";
-import { extractNaverPlaceName } from "@/lib/naver";
 
 export default async function PlacesPage({
   searchParams,
@@ -119,29 +118,6 @@ export default async function PlacesPage({
   }
 
   const places = (data ?? []) as Place[];
-
-  // 기존에 저장된 데이터의 place_name이 null이면, 화면에서 보이도록
-  // 최대 몇 개까지만 서버에서 재파싱해서 업데이트합니다.
-  const toAutoFix = places
-    .filter((p) => !p.place_name?.trim())
-    .slice(0, 5);
-
-  if (toAutoFix.length > 0) {
-    for (const p of toAutoFix) {
-      const name = await extractNaverPlaceName(p.naver_map_link);
-      if (!name) continue;
-
-      const { error } = await supabase
-        .from("places")
-        .update({ place_name: name })
-        .eq("id", p.id)
-        .eq("user_id", user.id);
-
-      if (!error) {
-        p.place_name = name;
-      }
-    }
-  }
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-10">
