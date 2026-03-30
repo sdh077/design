@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendGoogleChatWebhook } from "@/lib/google-chat/send";
 
 type CreatePayload = {
     name: string;
@@ -28,32 +29,33 @@ function toNumber(value: unknown) {
 }
 
 function getSignedQuantity(type: string, quantity: number) {
-    if (type === "OUT" || type === "WASTE") {
-        return -quantity;
-    }
+    if (type === "OUT" || type === "WASTE") return -quantity;
     return quantity;
 }
 
-async function getCurrentStock(
+async function getCurrentStockMap(
     supabase: ReturnType<typeof createAdminClient>,
-    storeId: string,
-    itemId: string
+    storeId: string
 ) {
     const { data, error } = await supabase
         .from("inventory_txns")
-        .select("type, quantity")
-        .eq("store_id", storeId)
-        .eq("inventory_item_id", itemId);
+        .select("inventory_item_id, type, quantity")
+        .eq("store_id", storeId);
 
     if (error) {
         throw new Error(error.message);
     }
 
-    return (data ?? []).reduce((sum, row) => {
-        const type = String(row.type ?? "");
+    const map = new Map<string, number>();
+
+    for (const row of data ?? []) {
+        const itemId = String(row.inventory_item_id);
         const quantity = toNumber(row.quantity);
-        return sum + getSignedQuantity(type, quantity);
-    }, 0);
+        const signed = getSignedQuantity(String(row.type ?? ""), quantity);
+        map.set(itemId, (map.get(itemId) ?? 0) + signed);
+    }
+
+    return map;
 }
 
 export async function POST(req: NextRequest) {
@@ -75,19 +77,27 @@ export async function POST(req: NextRequest) {
 
         const supabase = createAdminClient();
 
+        // 매장 정보
+        const { data: store, error: storeError } = await supabase
+            .from("stores")
+            .select("id, name, google_chat_webhook_url")
+            .eq("id", storeId)
+            .single();
+
+        if (storeError || !store) {
+            throw new Error(storeError?.message ?? "매장을 찾을 수 없습니다.");
+        }
+
+        // 기존 재고 맵
+        let stockMap = await getCurrentStockMap(supabase, storeId);
+
+        // 신규 생성
         for (const item of creates) {
             const name = String(item.name ?? "").trim();
             const baseUnit = String(item.base_unit ?? "").trim();
             const safetyStock = toNumber(item.safety_stock);
             const currentStock = toNumber(item.current_stock);
             const isActive = Boolean(item.is_active);
-
-            if (!name || !baseUnit) {
-                return NextResponse.json(
-                    { ok: false, message: "신규 품목은 품목명과 단위가 필수입니다." },
-                    { status: 400 }
-                );
-            }
 
             const { data: createdItem, error: createError } = await supabase
                 .from("inventory_items")
@@ -101,15 +111,15 @@ export async function POST(req: NextRequest) {
                 .select("id, base_unit")
                 .single();
 
-            if (createError) {
-                throw new Error(createError.message);
+            if (createError || !createdItem) {
+                throw new Error(createError?.message ?? "재고 품목 생성 실패");
             }
 
-            if (currentStock !== 0) {
+            if (currentStock > 0) {
                 const { error: txnError } = await supabase.from("inventory_txns").insert({
                     store_id: storeId,
                     inventory_item_id: createdItem.id,
-                    type: "IN",
+                    type: "INITIAL",
                     quantity: currentStock,
                     unit: createdItem.base_unit,
                     note,
@@ -122,6 +132,7 @@ export async function POST(req: NextRequest) {
             }
         }
 
+        // 수정
         for (const item of updates) {
             const itemId = String(item.id ?? "").trim();
             const name = String(item.name ?? "").trim();
@@ -130,26 +141,8 @@ export async function POST(req: NextRequest) {
             const targetCurrentStock = toNumber(item.current_stock);
             const isActive = Boolean(item.is_active);
 
-            if (!itemId || !name || !baseUnit) {
-                return NextResponse.json(
-                    { ok: false, message: "수정 품목에 필수값이 누락되었습니다." },
-                    { status: 400 }
-                );
-            }
-
-            const { data: existingItem, error: existingItemError } = await supabase
-                .from("inventory_items")
-                .select("id, store_id")
-                .eq("id", itemId)
-                .eq("store_id", storeId)
-                .single();
-
-            if (existingItemError || !existingItem) {
-                throw new Error(existingItemError?.message ?? "재고 품목을 찾을 수 없습니다.");
-            }
-
-            const currentStock = await getCurrentStock(supabase, storeId, itemId);
-            const delta = targetCurrentStock - currentStock;
+            const prevStock = stockMap.get(itemId) ?? 0;
+            const diff = targetCurrentStock - prevStock;
 
             const { error: updateError } = await supabase
                 .from("inventory_items")
@@ -167,12 +160,13 @@ export async function POST(req: NextRequest) {
                 throw new Error(updateError.message);
             }
 
-            if (delta !== 0) {
+            if (diff !== 0) {
+                // ⚠️ DB constraint 맞춰서 IN / OUT 사용
                 const { error: txnError } = await supabase.from("inventory_txns").insert({
                     store_id: storeId,
                     inventory_item_id: itemId,
-                    type: delta > 0 ? "IN" : "OUT",
-                    quantity: Math.abs(delta),
+                    type: diff > 0 ? "IN" : "OUT",
+                    quantity: Math.abs(diff),
                     unit: baseUnit,
                     note,
                     occurred_at: new Date().toISOString(),
@@ -184,9 +178,10 @@ export async function POST(req: NextRequest) {
             }
         }
 
+        // 비활성
         for (const item of deactivates) {
-            const itemId = String(item.id ?? "").trim();
-            if (!itemId) continue;
+            const id = String(item.id ?? "").trim();
+            if (!id) continue;
 
             const { error } = await supabase
                 .from("inventory_items")
@@ -194,12 +189,42 @@ export async function POST(req: NextRequest) {
                     is_active: false,
                     updated_at: new Date().toISOString(),
                 })
-                .eq("id", itemId)
+                .eq("id", id)
                 .eq("store_id", storeId);
 
             if (error) {
                 throw new Error(error.message);
             }
+        }
+
+        // 최신 품목 / 재고 조회
+        const { data: items, error: itemsError } = await supabase
+            .from("inventory_items")
+            .select("id, name, base_unit, safety_stock, is_active")
+            .eq("store_id", storeId)
+            .eq("is_active", true);
+
+        if (itemsError) {
+            throw new Error(itemsError.message);
+        }
+
+        stockMap = await getCurrentStockMap(supabase, storeId);
+
+        const lowStockItems = (items ?? [])
+            .map((item) => ({
+                name: String(item.name),
+                currentStock: stockMap.get(String(item.id)) ?? 0,
+                safetyStock: toNumber(item.safety_stock),
+                unit: String(item.base_unit),
+            }))
+            .filter((item) => item.currentStock < item.safetyStock);
+
+        if (store.google_chat_webhook_url && lowStockItems.length > 0) {
+            await sendGoogleChatWebhook({
+                webhookUrl: store.google_chat_webhook_url,
+                storeName: String(store.name),
+                items: lowStockItems,
+            });
         }
 
         return NextResponse.json({
@@ -210,7 +235,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
             {
                 ok: false,
-                message: error instanceof Error ? error.message : "재고 저장 중 오류가 발생했습니다.",
+                message: error instanceof Error ? error.message : "재고 저장 실패",
             },
             { status: 500 }
         );
