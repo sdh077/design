@@ -4,8 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { PlaceForm } from "@/components/place-form";
 import { PlaceList } from "@/components/place-list";
 import { PlaceTabs } from "@/components/place-tabs";
+import { PublicProfileForm } from "@/components/public-profile-form";
 import type { Place } from "@/types/place";
 import type { PlaceTab } from "@/types/place-tab";
+import type { Profile } from "@/types/profile";
 
 export default async function PlacesPage({
   searchParams,
@@ -13,29 +15,24 @@ export default async function PlacesPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const supabase = await createClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) {
     return (
-      <main className="mx-auto w-full max-w-3xl px-4 py-10">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-          <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-            로그인 필요
-          </h1>
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
-            네이버 지도 링크 저장/조회는 로그인 후 이용할 수 있어요.
-          </p>
-          <div className="mt-5">
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-            >
-              로그인하기
-            </Link>
-          </div>
-        </div>
+      <main className="mx-auto max-w-3xl px-6 py-16">
+        <h1 className="text-2xl font-semibold">로그인 필요</h1>
+        <p className="mt-2 text-sm text-zinc-500">
+          네이버 지도 링크 저장/조회는 로그인 후 이용할 수 있어요.
+        </p>
+        <Link
+          href="/login"
+          className="mt-6 inline-flex rounded-2xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white"
+        >
+          로그인하기
+        </Link>
       </main>
     );
   }
@@ -49,18 +46,11 @@ export default async function PlacesPage({
     .order("created_at", { ascending: true });
 
   if (tabsError) {
-    return (
-      <main className="mx-auto w-full max-w-3xl px-4 py-10">
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-100">
-          탭 목록을 불러오지 못했습니다: {tabsError.message}
-        </div>
-      </main>
-    );
+    return <div>탭 목록을 불러오지 못했습니다: {tabsError.message}</div>;
   }
 
   let tabs = (tabsData ?? []) as PlaceTab[];
 
-  // 사용자가 처음 들어오는 경우 기본탭을 만들어둡니다.
   if (!tabs.length) {
     const { data: created, error: createError } = await supabase
       .from("place_tabs")
@@ -73,13 +63,7 @@ export default async function PlacesPage({
       .single();
 
     if (createError || !created) {
-      return (
-        <main className="mx-auto w-full max-w-3xl px-4 py-10">
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-100">
-            기본탭 생성 실패: {createError?.message ?? "알 수 없는 오류"}
-          </div>
-        </main>
-      );
+      return <div>기본탭 생성 실패: {createError?.message ?? "알 수 없는 오류"}</div>;
     }
 
     tabs = [created as PlaceTab];
@@ -99,54 +83,63 @@ export default async function PlacesPage({
     .from("places")
     .select("*")
     .eq("user_id", user.id)
+    .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
 
-  const { data, error } = defaultTab.id === selectedTabId
-    ? await placesQuery.or(
-        `tab_id.eq.${selectedTabId},tab_id.is.null`
-      )
-    : await placesQuery.eq("tab_id", selectedTabId);
+  const { data, error } =
+    defaultTab.id === selectedTabId
+      ? await placesQuery.or(`tab_id.eq.${selectedTabId},tab_id.is.null`)
+      : await placesQuery.eq("tab_id", selectedTabId);
 
   if (error) {
-    return (
-      <main className="mx-auto w-full max-w-3xl px-4 py-10">
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-100">
-          목록을 불러오지 못했습니다: {error.message}
-        </div>
-      </main>
-    );
+    return <div>목록을 불러오지 못했습니다: {error.message}</div>;
   }
 
   const places = (data ?? []) as Place[];
 
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const profile = profileData as Profile | null;
+
+  const publicUrlBase =
+    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-10">
-      <div className="space-y-6">
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-          <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-5xl px-6 py-10">
+      <div className="space-y-8">
+        <section>
+          <h1 className="text-3xl font-semibold tracking-tight">
             네이버 지도 링크 저장
           </h1>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-            아래에 `https://naver.me/...` 형태의 링크를 붙여넣으면 저장됩니다.
+          <p className="mt-2 text-sm text-zinc-500">
+            아래에 <code>https://naver.me/...</code> 형태의 링크를 저장하고,
+            공개 추천 페이지로도 보여줄 수 있어요.
           </p>
-          <div className="mt-4">
-            <PlaceForm tabs={tabs} selectedTabId={selectedTabId} />
-          </div>
         </section>
 
-        <section className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
-          <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-            저장된 링크 (탭)
-          </h2>
-          <div className="mt-4">
-            <PlaceTabs tabs={tabs} selectedTabId={selectedTabId} />
+        <PublicProfileForm
+          initialHandle={profile?.handle ?? ""}
+          initialDisplayName={profile?.display_name ?? ""}
+          initialBio={profile?.bio ?? ""}
+          initialIsPublic={profile?.is_public ?? false}
+          publicUrlBase={publicUrlBase}
+        />
+
+        <PlaceForm tabs={tabs} selectedTabId={selectedTabId} />
+
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold">저장된 링크 (탭)</h2>
           </div>
-          <div className="mt-4">
-            <PlaceList places={places} />
-          </div>
+
+          <PlaceTabs tabs={tabs} selectedTabId={selectedTabId} />
+          <PlaceList places={places} />
         </section>
       </div>
     </main>
   );
 }
-

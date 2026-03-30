@@ -5,6 +5,8 @@ export type Place = {
   naver_map_link: string;
   naver_map_code: string | null;
   place_name: string | null;
+  description: string | null;
+  is_recommended: boolean;
+  sort_order: number;
   created_at: string;
 };
-
