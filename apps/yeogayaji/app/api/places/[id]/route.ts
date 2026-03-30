@@ -21,6 +21,7 @@ export async function PATCH(req: NextRequest, { params }: Context) {
     | {
       is_recommended?: boolean;
       sort_order?: number;
+      description?: string | null;
     }
     | null;
 
@@ -30,8 +31,12 @@ export async function PATCH(req: NextRequest, { params }: Context) {
     updatePayload.is_recommended = body.is_recommended;
   }
 
-  if (typeof body?.sort_order === "number" && Number.isFinite(body.sort_order)) {
+  if (typeof body?.sort_order === "number") {
     updatePayload.sort_order = body.sort_order;
+  }
+
+  if (typeof body?.description !== "undefined") {
+    updatePayload.description = body.description?.trim() || null;
   }
 
   if (!Object.keys(updatePayload).length) {

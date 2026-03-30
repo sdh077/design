@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useDebounce } from "@/lib/use-debounce";
 import type { Place } from "@/types/place";
 
 export function PlaceList({ places }: { places: Place[] }) {
@@ -10,16 +11,21 @@ export function PlaceList({ places }: { places: Place[] }) {
 
     const onDelete = async (id: string) => {
         if (!confirm("정말 삭제할까요?")) return;
+
         setLoadingId(id);
 
         try {
-            const res = await fetch(`/api/places/${id}`, { method: "DELETE" });
+            const res = await fetch(`/api/places/${id}`, {
+                method: "DELETE",
+            });
+
             if (!res.ok) {
                 const payload = (await res.json().catch(() => null)) as
                     | { message?: string }
                     | null;
                 throw new Error(payload?.message ?? "삭제 실패");
             }
+
             router.refresh();
         } catch (err) {
             alert(err instanceof Error ? err.message : "삭제 실패");
@@ -30,29 +36,18 @@ export function PlaceList({ places }: { places: Place[] }) {
 
     const onPatch = async (
         id: string,
-        payload: Partial<Pick<Place, "is_recommended" | "sort_order">>
+        payload: Partial<
+            Pick<Place, "is_recommended" | "sort_order" | "description">
+        >
     ) => {
-        setLoadingId(id);
-
         try {
-            const res = await fetch(`/api/places/${id}`, {
+            await fetch(`/api/places/${id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
-
-            if (!res.ok) {
-                const body = (await res.json().catch(() => null)) as
-                    | { message?: string }
-                    | null;
-                throw new Error(body?.message ?? "수정 실패");
-            }
-
-            router.refresh();
         } catch (err) {
-            alert(err instanceof Error ? err.message : "수정 실패");
-        } finally {
-            setLoadingId(null);
+            console.error(err);
         }
     };
 
@@ -73,16 +68,22 @@ export function PlaceList({ places }: { places: Place[] }) {
                 >
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                         <div className="min-w-0 flex-1">
-                            <p className="mb-2 text-xs text-zinc-400">저장 #{places.length - index}</p>
+                            <p className="mb-2 text-xs text-zinc-400">
+                                저장 #{places.length - index}
+                            </p>
+
                             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
                                 {p.place_name?.trim() ? p.place_name : "네이버 지도"}
                             </h3>
 
-                            {p.description ? (
-                                <p className="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-                                    {p.description}
-                                </p>
-                            ) : null}
+                            {/* 🔥 description 자동 저장 */}
+                            <div className="mt-3">
+                                <DescriptionEditor
+                                    value={p.description ?? ""}
+                                    placeId={p.id}
+                                    onSave={onPatch}
+                                />
+                            </div>
 
                             <a
                                 href={p.naver_map_link}
@@ -102,7 +103,9 @@ export function PlaceList({ places }: { places: Place[] }) {
                                     checked={p.is_recommended}
                                     disabled={loadingId === p.id}
                                     onChange={(e) =>
-                                        onPatch(p.id, { is_recommended: e.target.checked })
+                                        onPatch(p.id, {
+                                            is_recommended: e.target.checked,
+                                        })
                                     }
                                 />
                             </label>
@@ -133,6 +136,53 @@ export function PlaceList({ places }: { places: Place[] }) {
                     </div>
                 </article>
             ))}
+        </div>
+    );
+}
+
+function DescriptionEditor({
+    value,
+    placeId,
+    onSave,
+}: {
+    value: string;
+    placeId: string;
+    onSave: (
+        id: string,
+        payload: Partial<Pick<Place, "description">>
+    ) => Promise<void>;
+}) {
+    const [text, setText] = useState(value ?? "");
+    const [saving, setSaving] = useState(false);
+
+    const debounced = useDebounce(text, 500);
+
+    useEffect(() => {
+        if (debounced === value) return;
+
+        const run = async () => {
+            setSaving(true);
+            await onSave(placeId, {
+                description: debounced,
+            });
+            setSaving(false);
+        };
+
+        run();
+    }, [debounced]);
+
+    return (
+        <div className="space-y-1">
+            <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="추천 이유를 입력하세요"
+                className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+
+            <p className="text-xs text-zinc-400">
+                {saving ? "저장 중..." : "자동 저장됨"}
+            </p>
         </div>
     );
 }

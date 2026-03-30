@@ -100,7 +100,7 @@ export default async function PublicUserPage({
                                 </div>
 
                                 {place.description ? (
-                                    <p className="mb-5 text-sm leading-6 text-white/70">
+                                    <p className="mb-5 text-sm leading-6 text-white/70 whitespace-pre-line">
                                         {place.description}
                                     </p>
                                 ) : null}
