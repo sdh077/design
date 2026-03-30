@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
         }
 
         const result = await response.json();
-        const orders: TossOrder[] = result.orders ?? result.data ?? [];
+        const orders: TossOrder[] = result.success ?? result.success.data ?? [];
 
         for (const order of orders) {
             const { data: savedOrder, error: orderError } = await admin
