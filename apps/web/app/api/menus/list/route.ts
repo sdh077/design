@@ -13,8 +13,14 @@ type RecipeRow = {
     menu_id: string;
 };
 
-type MappingRow = {
+type MappingJoinRow = {
     menu_id: string;
+    external_catalog_items: {
+        id: string;
+        title: string;
+        external_item_id: string;
+        code: string | null;
+    } | null;
 };
 
 export async function GET(req: NextRequest) {
@@ -44,14 +50,36 @@ export async function GET(req: NextRequest) {
         const menuIds = (menus ?? []).map((menu) => menu.id);
 
         let recipeMenuIdSet = new Set<string>();
-        let mappedMenuIdSet = new Set<string>();
+        let mappingMap = new Map<
+            string,
+            {
+                external_catalog_item_id: string | null;
+                external_title: string | null;
+                external_item_id: string | null;
+                external_code: string | null;
+            }
+        >();
 
         if (menuIds.length > 0) {
-            const [{ data: recipeRows, error: recipeError }, { data: mappingRows, error: mappingError }] =
-                await Promise.all([
-                    supabase.from("recipes").select("menu_id").in("menu_id", menuIds),
-                    supabase.from("menu_external_item_maps").select("menu_id").in("menu_id", menuIds),
-                ]);
+            const [
+                { data: recipeRows, error: recipeError },
+                { data: mappingRows, error: mappingError },
+            ] = await Promise.all([
+                supabase.from("recipes").select("menu_id").in("menu_id", menuIds),
+                supabase
+                    .from("menu_external_item_maps")
+                    .select(`
+            menu_id,
+            external_catalog_item_id,
+            external_catalog_items (
+              id,
+              title,
+              external_item_id,
+              code
+            )
+          `)
+                    .in("menu_id", menuIds),
+            ]);
 
             if (recipeError) {
                 throw new Error(recipeError.message);
@@ -65,16 +93,26 @@ export async function GET(req: NextRequest) {
                 ((recipeRows ?? []) as RecipeRow[]).map((row) => String(row.menu_id))
             );
 
-            mappedMenuIdSet = new Set(
-                ((mappingRows ?? []) as MappingRow[]).map((row) => String(row.menu_id))
-            );
+            for (const row of (mappingRows ?? []) as any[]) {
+                mappingMap.set(String(row.menu_id), {
+                    external_catalog_item_id: row.external_catalog_item_id ?? null,
+                    external_title: row.external_catalog_items?.title ?? null,
+                    external_item_id: row.external_catalog_items?.external_item_id ?? null,
+                    external_code: row.external_catalog_items?.code ?? null,
+                });
+            }
         }
 
-        const rows = ((menus ?? []) as MenuRow[]).map((menu) => ({
-            ...menu,
-            has_recipe: recipeMenuIdSet.has(String(menu.id)),
-            has_external_mapping: mappedMenuIdSet.has(String(menu.id)),
-        }));
+        const rows = ((menus ?? []) as MenuRow[]).map((menu) => {
+            const mapping = mappingMap.get(String(menu.id));
+
+            return {
+                ...menu,
+                has_recipe: recipeMenuIdSet.has(String(menu.id)),
+                has_external_mapping: Boolean(mapping),
+                external_mapping: mapping ?? null,
+            };
+        });
 
         return NextResponse.json({
             ok: true,

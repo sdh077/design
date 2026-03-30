@@ -53,6 +53,7 @@ export default async function AppLayout({
                         <div className="space-y-1">
                             <NavLink href="/menus">메뉴</NavLink>
                             <NavLink href="/inventory">재고</NavLink>
+                            <NavLink href="/inventory-snapshots">재고 스냅샷</NavLink>
                             <NavLink href="/recipes">레시피</NavLink>
                             <NavLink href="/consumption">소모량</NavLink>
                             <NavLink href="/recipe-calibration">레시피 보정</NavLink>

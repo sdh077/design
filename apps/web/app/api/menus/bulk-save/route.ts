@@ -4,12 +4,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 type CreatePayload = {
     name: string;
     is_active: boolean;
+    pos_mapping_disabled?: boolean;
 };
 
 type UpdatePayload = {
     id: string;
     name: string;
     is_active: boolean;
+    pos_mapping_disabled?: boolean;
 };
 
 type DeactivatePayload = {
@@ -37,6 +39,7 @@ export async function POST(req: NextRequest) {
         for (const item of creates) {
             const name = String(item.name ?? "").trim();
             const isActive = Boolean(item.is_active);
+            const posMappingDisabled = Boolean(item.pos_mapping_disabled ?? false);
 
             if (!name) {
                 return NextResponse.json(
@@ -49,6 +52,7 @@ export async function POST(req: NextRequest) {
                 store_id: storeId,
                 name,
                 is_active: isActive,
+                pos_mapping_disabled: posMappingDisabled,
             });
 
             if (error) {
@@ -60,6 +64,7 @@ export async function POST(req: NextRequest) {
             const id = String(item.id ?? "").trim();
             const name = String(item.name ?? "").trim();
             const isActive = Boolean(item.is_active);
+            const posMappingDisabled = Boolean(item.pos_mapping_disabled ?? false);
 
             if (!id || !name) {
                 return NextResponse.json(
@@ -73,6 +78,7 @@ export async function POST(req: NextRequest) {
                 .update({
                     name,
                     is_active: isActive,
+                    pos_mapping_disabled: posMappingDisabled,
                     updated_at: new Date().toISOString(),
                 })
                 .eq("id", id)
@@ -80,6 +86,17 @@ export async function POST(req: NextRequest) {
 
             if (error) {
                 throw new Error(error.message);
+            }
+
+            if (posMappingDisabled) {
+                const { error: deleteMapError } = await supabase
+                    .from("menu_external_item_maps")
+                    .delete()
+                    .eq("menu_id", id);
+
+                if (deleteMapError) {
+                    throw new Error(deleteMapError.message);
+                }
             }
         }
 
