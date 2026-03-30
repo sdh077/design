@@ -2,27 +2,179 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-type TossOrderItem = {
-    itemId?: string;
+type TossOrderState =
+    | "REQUESTED"
+    | "OPENED"
+    | "COMPLETED"
+    | "CANCELLED"
+    | "UNDEFINED";
+
+type TossOrderOptionChoice = {
     title: string;
+    code?: string;
+    priceValue?: number;
+    quantity?: number;
+    option?: {
+        title: string;
+    };
+};
+
+type TossOrderLineItem = {
+    diningOption?: "HERE" | "TOGO" | "DELIVERY" | "PICKUP" | "UNDEFINED";
+    item: {
+        title: string;
+        code?: string;
+        category?: {
+            title: string;
+            code?: string;
+        };
+    };
+    itemPrice?: {
+        title?: string;
+        priceType?: "FIXED" | "VARIABLE" | "UNIT" | "UNDEFINED";
+        priceUnit?: number;
+        priceValue?: number;
+        isTaxFree?: boolean;
+        taxPercentage?: number;
+        taxInclusive?: boolean;
+    };
+    optionChoices?: TossOrderOptionChoice[];
+    appliedDiscounts?: unknown[];
     quantity: number;
-    options?: unknown;
 };
 
 type TossOrder = {
-    orderId: string;
-    orderState: string;
-    orderedAt: string;
+    id: string;
+    merchantId: number;
+    source?: string;
+    orderState: TossOrderState;
+    createdAt: string;
+    updatedAt?: string;
+    openedAt?: string | null;
     completedAt?: string | null;
     cancelledAt?: string | null;
-    totalAmount?: number | null;
-    lineItems?: TossOrderItem[];
+    lineItems: TossOrderLineItem[];
+    payments?: unknown[];
+    discounts?: unknown[];
+    chargePrice?: {
+        listPrice?: number;
+        discountAmount?: number;
+        tipAmount?: number;
+        serviceChargeAmount?: number;
+        taxAmount?: number;
+        supplyAmount?: number;
+        taxExemptAmount?: number;
+        totalAmount?: number;
+    };
 };
+
+type TossSuccessResponse<T> = {
+    resultType: "SUCCESS";
+    success: T;
+};
+
+type TossFailResponse = {
+    resultType: "FAIL";
+    error?: {
+        errorCode?: string;
+        reason?: string;
+        data?: unknown;
+    };
+};
+
+const DEFAULT_SYNC_STATES: TossOrderState[] = [
+    "REQUESTED",
+    "OPENED",
+    "COMPLETED",
+    "CANCELLED",
+];
+
+function getOptionPayload(optionChoices: TossOrderOptionChoice[] | undefined) {
+    if (!optionChoices?.length) return null;
+
+    return optionChoices.map((choice) => ({
+        title: choice.title,
+        code: choice.code ?? null,
+        priceValue: choice.priceValue ?? null,
+        quantity: choice.quantity ?? null,
+        optionTitle: choice.option?.title ?? null,
+    }));
+}
+
+async function fetchTossOrdersPage(params: {
+    merchantId: string | number;
+    accessKey: string;
+    secretKey: string;
+    page: number;
+    size: number;
+    from?: string;
+    to?: string;
+    orderStates?: TossOrderState[];
+    sources?: string[];
+}) {
+    const url = new URL(
+        `https://open-api.tossplace.com/api-public/openapi/v1/merchants/${params.merchantId}/order/orders`
+    );
+
+    url.searchParams.set("page", String(params.page));
+    url.searchParams.set("size", String(params.size));
+    url.searchParams.set("sortOrder", "DESC");
+
+    // if (params.from) url.searchParams.set("from", params.from);
+    // if (params.to) url.searchParams.set("to", params.to);
+
+    // for (const state of params.orderStates ?? []) {
+    //     url.searchParams.append("orderStates", state);
+    // }
+
+    for (const source of params.sources ?? []) {
+        url.searchParams.append("sources", source);
+    }
+
+    const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+            "x-access-key": params.accessKey,
+            "x-secret-key": params.secretKey,
+            "Content-Type": "application/json",
+        },
+        cache: "no-store",
+    });
+
+    const tossEventId = response.headers.get("x-toss-event-id");
+
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(
+            `토스 주문 조회 실패(${response.status})${tossEventId ? ` [eventId=${tossEventId}]` : ""
+            }: ${text}`
+        );
+    }
+
+    const json = (await response.json()) as
+        | TossSuccessResponse<TossOrder[]>
+        | TossFailResponse;
+    console.log(json, url)
+    if (json.resultType !== "SUCCESS") {
+        throw new Error(
+            `토스 주문 조회 실패${tossEventId ? ` [eventId=${tossEventId}]` : ""
+            }: ${json.error?.reason ?? "unknown error"}`
+        );
+    }
+
+    return json.success ?? [];
+}
 
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
+
         const storeId = String(body.storeId ?? "");
+        const from = body.from ? String(body.from) : undefined;
+        const to = body.to ? String(body.to) : undefined;
+        const orderStates = Array.isArray(body.orderStates)
+            ? (body.orderStates as TossOrderState[])
+            : DEFAULT_SYNC_STATES;
 
         if (!storeId) {
             return NextResponse.json(
@@ -89,6 +241,7 @@ export async function POST(req: NextRequest) {
         if (connectionError) {
             throw new Error(connectionError.message);
         }
+
         if (!connection) {
             return NextResponse.json(
                 { ok: false, message: "POS 연결 정보가 없습니다." },
@@ -96,45 +249,52 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const response = await fetch(
-            `https://open-api.tossplace.com/api-public/openapi/v1/merchants/${connection.merchant_id}/order/orders`,
-            {
-                headers: {
-                    "x-access-key": connection.access_key,
-                    "x-secret-key": connection.secret_key,
-                    "Content-Type": "application/json",
-                },
-                cache: "no-store",
-            }
-        );
+        const pageSize = 100;
+        const fetchedOrders: TossOrder[] = [];
+        let page = 1;
 
-        if (!response.ok) {
-            const text = await response.text();
-            throw new Error(`토스 주문 조회 실패: ${text}`);
+        while (true) {
+            const pageOrders = await fetchTossOrdersPage({
+                merchantId: connection.merchant_id,
+                accessKey: connection.access_key,
+                secretKey: connection.secret_key,
+                page,
+                size: pageSize,
+                from:
+                    from ??
+                    connection.last_order_sync_at ??
+                    undefined,
+                to,
+                orderStates,
+            });
+
+            if (!pageOrders.length) break;
+
+            fetchedOrders.push(...pageOrders);
+
+            if (pageOrders.length < pageSize) break;
+            page += 1;
         }
 
-        const result = await response.json();
-        const orders: TossOrder[] = result.orders ?? result.data ?? [];
+        for (const order of fetchedOrders) {
+            const totalAmount = order.chargePrice?.totalAmount ?? null;
 
-        for (const order of orders) {
             const { data: savedOrder, error: orderError } = await admin
                 .from("external_orders")
                 .upsert(
                     {
                         store_id: storeId,
-                        provider: "TOSS_PLACE",
-                        external_order_id: order.orderId,
+                        provider: "toss_pos",
+                        external_order_id: order.id,
                         order_state: order.orderState,
-                        ordered_at: order.orderedAt,
+                        ordered_at: order.createdAt,
                         completed_at: order.completedAt ?? null,
                         cancelled_at: order.cancelledAt ?? null,
-                        total_amount: order.totalAmount ?? null,
+                        total_amount: totalAmount,
                         raw_json: order,
                         synced_at: new Date().toISOString(),
                     },
-                    {
-                        onConflict: "store_id,provider,external_order_id",
-                    }
+                    { onConflict: "store_id,provider,external_order_id" }
                 )
                 .select("*")
                 .single();
@@ -148,15 +308,15 @@ export async function POST(req: NextRequest) {
                 .delete()
                 .eq("external_order_row_id", savedOrder.id);
 
-            for (const item of order.lineItems ?? []) {
+            for (const lineItem of order.lineItems ?? []) {
                 const { error: itemError } = await admin
                     .from("external_order_items")
                     .insert({
                         external_order_row_id: savedOrder.id,
-                        external_item_id: item.itemId ?? null,
-                        title: item.title,
-                        quantity: item.quantity,
-                        raw_options_json: item.options ?? null,
+                        external_item_id: lineItem.item?.code ?? null,
+                        title: lineItem.item?.title ?? "이름 없는 상품",
+                        quantity: lineItem.quantity ?? 1,
+                        raw_options_json: getOptionPayload(lineItem.optionChoices),
                     });
 
                 if (itemError) {
@@ -178,10 +338,12 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             ok: true,
-            count: orders.length,
+            count: fetchedOrders.length,
+            message: "주문 동기화가 완료되었습니다.",
         });
     } catch (error) {
-        console.log('error', error)
+        console.error("[/api/toss/orders/sync] error", error);
+
         return NextResponse.json(
             {
                 ok: false,

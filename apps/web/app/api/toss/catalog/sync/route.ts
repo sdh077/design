@@ -2,18 +2,122 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+type TossCatalogItemPriceType = "FIXED" | "VARIABLE" | "UNIT" | "UNDEFINED";
+
 type TossCatalogItem = {
-    itemId: string;
+    id: string;
+    merchantId: number;
     title: string;
-    code?: string;
-    description?: string;
-    imageUrl?: string;
+    code?: string | null;
+    description?: string | null;
+    imageUrl?: string | null;
+    labels?: string[];
+    price: {
+        title: string;
+        priceType: TossCatalogItemPriceType;
+        priceUnit: number;
+        priceValue: number;
+        barcode?: string | null;
+    };
+    createdAt: string;
+    updatedAt: string;
 };
+
+type TossSuccessResponse<T> = {
+    resultType: "SUCCESS";
+    success: T;
+};
+
+type TossFailResponse = {
+    resultType: "FAIL";
+    error?: {
+        errorCode?: string;
+        reason?: string;
+        data?: unknown;
+    };
+};
+
+function parseCatalogItems(payload: unknown): TossCatalogItem[] {
+    if (Array.isArray(payload)) {
+        return payload as TossCatalogItem[];
+    }
+
+    if (payload && typeof payload === "object") {
+        const obj = payload as Record<string, unknown>;
+
+        // 혹시 공통 응답 래퍼가 있는 경우도 흡수
+        if (obj.resultType === "SUCCESS" && Array.isArray(obj.success)) {
+            return obj.success as TossCatalogItem[];
+        }
+
+        // 방어적으로 남겨둠
+        if (Array.isArray(obj.items)) {
+            return obj.items as TossCatalogItem[];
+        }
+
+        if (obj.success && typeof obj.success === "object") {
+            const success = obj.success as Record<string, unknown>;
+            if (Array.isArray(success.items)) {
+                return success.items as TossCatalogItem[];
+            }
+            if (Array.isArray(success.data)) {
+                return success.data as TossCatalogItem[];
+            }
+        }
+
+        if (Array.isArray(obj.data)) {
+            return obj.data as TossCatalogItem[];
+        }
+    }
+
+    return [];
+}
+
+async function fetchTossCatalogPage(params: {
+    merchantId: string | number;
+    accessKey: string;
+    secretKey: string;
+    page: number;
+    size: number;
+}) {
+    const url = new URL(
+        `https://open-api.tossplace.com/api-public/openapi/v1/merchants/${params.merchantId}/catalog/items`
+    );
+
+    url.searchParams.set("page", String(params.page));
+    url.searchParams.set("size", String(params.size));
+
+    const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+            "x-access-key": params.accessKey,
+            "x-secret-key": params.secretKey,
+            "Content-Type": "application/json",
+        },
+        cache: "no-store",
+    });
+
+    const tossEventId = response.headers.get("x-toss-event-id");
+
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(
+            `토스 카탈로그 조회 실패(${response.status})${tossEventId ? ` [eventId=${tossEventId}]` : ""
+            }: ${text}`
+        );
+    }
+
+    const json = await response.json();
+    const items = parseCatalogItems(json);
+
+    return items;
+}
 
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const storeId = String(body.storeId ?? "");
+
+        const storeId = String(body.storeId ?? "").trim();
 
         if (!storeId) {
             return NextResponse.json(
@@ -88,38 +192,62 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const response = await fetch(
-            `https://open-api.tossplace.com/api-public/openapi/v1/merchants/${connection.merchant_id}/catalog/items`,
-            {
-                headers: {
-                    "x-access-key": connection.access_key,
-                    "x-secret-key": connection.secret_key,
-                    "Content-Type": "application/json",
-                },
-                cache: "no-store",
-            }
-        );
+        const pageSize = 100;
+        const fetchedItems: TossCatalogItem[] = [];
+        let page = 1;
 
-        if (!response.ok) {
-            const text = await response.text();
-            throw new Error(`토스 카탈로그 조회 실패: ${text}`);
+        while (true) {
+            const pageItems = await fetchTossCatalogPage({
+                merchantId: connection.merchant_id,
+                accessKey: connection.access_key,
+                secretKey: connection.secret_key,
+                page,
+                size: pageSize,
+            });
+
+            if (!pageItems.length) {
+                break;
+            }
+
+            fetchedItems.push(...pageItems);
+
+            if (pageItems.length < pageSize) {
+                break;
+            }
+
+            page += 1;
         }
 
-        const result = await response.json();
-        const items: TossCatalogItem[] = result.items ?? result.data ?? [];
+        // 현재 내려온 상품 ID 목록
+        const incomingExternalIds = new Set(
+            fetchedItems.map((item) => String(item.id))
+        );
 
-        for (const item of items) {
+        // 기존 카탈로그 조회
+        const { data: existingItems, error: existingError } = await admin
+            .from("external_catalog_items")
+            .select("id, external_item_id")
+            .eq("store_id", storeId)
+            .eq("provider", "TOSS_PLACE");
+
+        if (existingError) {
+            throw new Error(existingError.message);
+        }
+
+        // upsert
+        for (const item of fetchedItems) {
             const { error } = await admin.from("external_catalog_items").upsert(
                 {
                     store_id: storeId,
                     provider: "TOSS_PLACE",
-                    external_item_id: item.itemId,
+                    external_item_id: item.id,
                     title: item.title,
                     code: item.code ?? null,
                     description: item.description ?? null,
                     image_url: item.imageUrl ?? null,
                     raw_json: item,
                     synced_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
                 },
                 {
                     onConflict: "store_id,provider,external_item_id",
@@ -128,6 +256,36 @@ export async function POST(req: NextRequest) {
 
             if (error) {
                 throw new Error(error.message);
+            }
+        }
+
+        // 토스에서 사라진 상품 정리
+        const toDeleteIds =
+            existingItems
+                ?.filter(
+                    (row) => !incomingExternalIds.has(String(row.external_item_id))
+                )
+                .map((row) => row.id) ?? [];
+
+        if (toDeleteIds.length > 0) {
+            // 먼저 이 상품에 연결된 메뉴 매핑 삭제
+            const { error: deleteMapError } = await admin
+                .from("menu_external_item_maps")
+                .delete()
+                .in("external_catalog_item_id", toDeleteIds);
+
+            if (deleteMapError) {
+                throw new Error(deleteMapError.message);
+            }
+
+            // 카탈로그 삭제
+            const { error: deleteCatalogError } = await admin
+                .from("external_catalog_items")
+                .delete()
+                .in("id", toDeleteIds);
+
+            if (deleteCatalogError) {
+                throw new Error(deleteCatalogError.message);
             }
         }
 
@@ -144,9 +302,13 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             ok: true,
-            count: items.length,
+            count: fetchedItems.length,
+            deletedCount: toDeleteIds.length,
+            message: "카탈로그 동기화가 완료되었습니다.",
         });
     } catch (error) {
+        console.error("[/api/toss/catalog/sync] error", error);
+
         return NextResponse.json(
             {
                 ok: false,

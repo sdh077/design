@@ -13,8 +13,8 @@ export function PlaceForm({
   selectedTabId: string;
 }) {
   const router = useRouter();
-
   const [placeName, setPlaceName] = useState("");
+  const [description, setDescription] = useState("");
   const [naverMapLink, setNaverMapLink] = useState("");
   const [tabId, setTabId] = useState(selectedTabId);
   const [loading, setLoading] = useState(false);
@@ -26,7 +26,6 @@ export function PlaceForm({
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-
     setError(null);
 
     const normalized = normalizeNaverMeLink(naverMapLink);
@@ -41,6 +40,7 @@ export function PlaceForm({
     }
 
     setLoading(true);
+
     try {
       const res = await fetch("/api/places", {
         method: "POST",
@@ -49,6 +49,7 @@ export function PlaceForm({
         },
         body: JSON.stringify({
           place_name: placeName.trim() || null,
+          description: description.trim() || null,
           naver_map_link: normalized,
           tab_id: tabId,
         }),
@@ -62,6 +63,7 @@ export function PlaceForm({
       }
 
       setPlaceName("");
+      setDescription("");
       setNaverMapLink("");
       router.refresh();
     } catch (err) {
@@ -72,65 +74,68 @@ export function PlaceForm({
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-          이름 (선택)
+    <form
+      onSubmit={onSubmit}
+      className="rounded-3xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950"
+    >
+      <div className="grid gap-4">
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium">이름 (선택)</span>
+          <input
+            value={placeName}
+            onChange={(e) => setPlaceName(e.target.value)}
+            disabled={loading}
+            className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900"
+          />
         </label>
-        <input
-          className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
-          placeholder="예: 카페, 음식점 이름"
-          value={placeName}
-          onChange={(e) => setPlaceName(e.target.value)}
-          disabled={loading}
-        />
-      </div>
 
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-          저장할 탭
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium">한줄 추천 이유 (선택)</span>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            disabled={loading}
+            className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900"
+          />
         </label>
-        <select
-          className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
-          value={tabId}
-          onChange={(e) => setTabId(e.target.value)}
+
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium">저장할 탭</span>
+          <select
+            value={tabId}
+            onChange={(e) => setTabId(e.target.value)}
+            disabled={loading}
+            className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900"
+          >
+            {tabs.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="mb-2 block text-sm font-medium">네이버 지도 링크</span>
+          <input
+            value={naverMapLink}
+            onChange={(e) => setNaverMapLink(e.target.value)}
+            disabled={loading}
+            className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900"
+          />
+        </label>
+
+        {error ? <p className="text-sm text-red-500">{error}</p> : null}
+
+        <button
+          type="submit"
           disabled={loading}
+          className="inline-flex w-fit rounded-2xl bg-zinc-900 px-4 py-3 text-sm font-semibold text-white dark:bg-white dark:text-black"
         >
-          {tabs.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
+          {loading ? "저장 중..." : "저장"}
+        </button>
       </div>
-
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-          네이버 지도 링크
-        </label>
-        <input
-          className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
-          placeholder="예: https://naver.me/5Kb3kUc8"
-          value={naverMapLink}
-          onChange={(e) => setNaverMapLink(e.target.value)}
-          disabled={loading}
-        />
-      </div>
-
-      {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-200">
-          {error}
-        </div>
-      ) : null}
-
-      <button
-        type="submit"
-        disabled={loading || !naverMapLink.trim()}
-        className="inline-flex h-10 items-center justify-center rounded-xl bg-zinc-900 px-4 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-      >
-        {loading ? "저장 중..." : "저장"}
-      </button>
     </form>
   );
 }
-

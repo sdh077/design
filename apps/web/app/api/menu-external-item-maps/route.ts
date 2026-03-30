@@ -17,17 +17,22 @@ export async function POST(req: NextRequest) {
 
         const supabase = createAdminClient();
 
+        // 메뉴 기준 기존 매핑 제거
+        const { error: deleteError } = await supabase
+            .from("menu_external_item_maps")
+            .delete()
+            .eq("menu_id", menuId);
+
+        if (deleteError) {
+            throw new Error(deleteError.message);
+        }
+
         const { data, error } = await supabase
             .from("menu_external_item_maps")
-            .upsert(
-                {
-                    menu_id: menuId,
-                    external_catalog_item_id: externalCatalogItemId,
-                },
-                {
-                    onConflict: "external_catalog_item_id",
-                }
-            )
+            .insert({
+                menu_id: menuId,
+                external_catalog_item_id: externalCatalogItemId,
+            })
             .select("*")
             .single();
 
@@ -39,6 +44,41 @@ export async function POST(req: NextRequest) {
             ok: true,
             mapping: data,
         });
+    } catch (error) {
+        return NextResponse.json(
+            {
+                ok: false,
+                message: error instanceof Error ? error.message : "unknown error",
+            },
+            { status: 500 }
+        );
+    }
+}
+
+export async function DELETE(req: NextRequest) {
+    try {
+        const { searchParams } = new URL(req.url);
+        const menuId = String(searchParams.get("menuId") ?? "");
+
+        if (!menuId) {
+            return NextResponse.json(
+                { ok: false, message: "menuId is required" },
+                { status: 400 }
+            );
+        }
+
+        const supabase = createAdminClient();
+
+        const { error } = await supabase
+            .from("menu_external_item_maps")
+            .delete()
+            .eq("menu_id", menuId);
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return NextResponse.json({ ok: true });
     } catch (error) {
         return NextResponse.json(
             {

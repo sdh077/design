@@ -1,14 +1,13 @@
 import { redirect } from "next/navigation";
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    PageHeader,
-} from "@workspace/ui";
+import { PageHeader } from "@workspace/ui";
 import { createClient } from "@/lib/supabase/server";
 import { getAccessibleStores } from "@/lib/store/get-accessible-stores";
-import { SyncButtons } from "@/components/pos/SyncButtons";
+import { ExternalOrdersClient } from "@/components/external-orders/external-orders-client";
+
+type StoreRow = {
+    id: string;
+    name: string;
+};
 
 type ExternalOrderRow = {
     id: string;
@@ -26,6 +25,29 @@ type ExternalOrderRow = {
     updated_at: string;
 };
 
+type MenuListRow = {
+    id: string;
+    store_id: string;
+    name: string;
+    is_active: boolean;
+    updated_at: string;
+};
+
+type MappingRow = {
+    menu_id: string;
+    external_catalog_item_id: string;
+    external_catalog_items: {
+        id: string;
+        title: string;
+        external_item_id: string;
+        code: string | null;
+    } | null;
+};
+
+type RecipeRow = {
+    menu_id: string;
+};
+
 export default async function ExternalOrdersPage() {
     const supabase = await createClient();
 
@@ -37,132 +59,92 @@ export default async function ExternalOrdersPage() {
         redirect("/login");
     }
 
-    const stores = await getAccessibleStores();
+    const stores = (await getAccessibleStores()) as StoreRow[];
     const storeIds = stores.map((store) => store.id);
 
     let orders: ExternalOrderRow[] = [];
+    let menus: MenuListRow[] = [];
+    let mappings: MappingRow[] = [];
+    let recipes: RecipeRow[] = [];
 
     if (storeIds.length > 0) {
-        const { data, error } = await supabase
-            .from("external_orders")
-            .select("*")
-            .in("store_id", storeIds)
-            .order("ordered_at", { ascending: false });
+        const [
+            { data: orderData, error: orderError },
+            { data: menuData, error: menuError },
+        ] = await Promise.all([
+            supabase
+                .from("external_orders")
+                .select("*")
+                .in("store_id", storeIds)
+                .order("ordered_at", { ascending: false }),
+            supabase
+                .from("menus")
+                .select("id, store_id, name, is_active, updated_at")
+                .in("store_id", storeIds)
+                .order("name", { ascending: true }),
+        ]);
 
-        if (error) {
-            throw new Error(error.message);
+        if (orderError) {
+            throw new Error(orderError.message);
         }
 
-        orders = (data ?? []) as ExternalOrderRow[];
+        if (menuError) {
+            throw new Error(menuError.message);
+        }
+
+        orders = (orderData ?? []) as ExternalOrderRow[];
+        menus = (menuData ?? []) as MenuListRow[];
+
+        const menuIds = menus.map((menu) => menu.id);
+
+        if (menuIds.length > 0) {
+            const [
+                { data: mappingData, error: mappingError },
+                { data: recipeData, error: recipeError },
+            ] = await Promise.all([
+                supabase
+                    .from("menu_external_item_maps")
+                    .select(`
+            menu_id,
+            external_catalog_item_id,
+            external_catalog_items (
+              id,
+              title,
+              external_item_id,
+              code
+            )
+          `)
+                    .in("menu_id", menuIds),
+                supabase.from("recipes").select("menu_id").in("menu_id", menuIds),
+            ]);
+
+            if (mappingError) {
+                throw new Error(mappingError.message);
+            }
+
+            if (recipeError) {
+                throw new Error(recipeError.message);
+            }
+
+            mappings = (mappingData ?? []) as unknown as MappingRow[];
+            recipes = (recipeData ?? []) as RecipeRow[];
+        }
     }
-
-    const storeNameById = new Map(
-        stores.map((store) => [String(store.id), String(store.name)])
-    );
-
-    const completedCount = orders.filter(
-        (order) => order.order_state === "COMPLETED"
-    ).length;
 
     return (
         <div className="space-y-6">
             <PageHeader
-                title="외부 주문 현황"
-                description="내 가맹점 매장으로 들어온 외부 주문을 확인합니다."
+                title="외부 주문"
+                description="POS 주문과 내 메뉴 연동 상태를 함께 확인합니다."
             />
 
-            <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>전체 주문 수</CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-2xl font-bold">
-                        {orders.length}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>완료 주문 수</CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-2xl font-bold">
-                        {completedCount}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>대상 매장 수</CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-2xl font-bold">
-                        {stores.length}
-                    </CardContent>
-                </Card>
-            </div>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>주문 목록</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {orders.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-                            외부 주문 데이터가 없습니다.
-                        </div>
-                    ) : (
-                        orders.map((order) => (
-                            <div
-                                key={order.id}
-                                className="rounded-xl border border-border p-4"
-                            >
-                                <div className="flex flex-wrap items-center justify-between gap-3">
-                                    <div>
-                                        <div className="font-medium">
-                                            {storeNameById.get(String(order.store_id)) ?? "-"}
-                                        </div>
-                                        <div className="mt-1 text-sm text-muted-foreground">
-                                            {order.provider} / 주문번호: {order.external_order_id}
-                                        </div>
-                                    </div>
-
-                                    <div className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground">
-                                        {order.order_state}
-                                    </div>
-                                </div>
-
-                                <div className="mt-3 grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
-                                    <div>
-                                        주문시각:{" "}
-                                        {new Date(order.ordered_at).toLocaleString("ko-KR")}
-                                    </div>
-                                    <div>
-                                        금액:{" "}
-                                        {order.total_amount != null
-                                            ? `${order.total_amount.toLocaleString("ko-KR")}원`
-                                            : "-"}
-                                    </div>
-                                    <div>
-                                        완료시각:{" "}
-                                        {order.completed_at
-                                            ? new Date(order.completed_at).toLocaleString("ko-KR")
-                                            : "-"}
-                                    </div>
-                                    <div>
-                                        취소시각:{" "}
-                                        {order.cancelled_at
-                                            ? new Date(order.cancelled_at).toLocaleString("ko-KR")
-                                            : "-"}
-                                    </div>
-                                </div>
-
-                                <div className="mt-4">
-                                    <SyncButtons storeId={order.store_id} />
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </CardContent>
-            </Card>
+            <ExternalOrdersClient
+                stores={stores}
+                initialOrders={orders}
+                initialMenus={menus}
+                initialMappings={mappings}
+                initialRecipes={recipes}
+            />
         </div>
     );
 }

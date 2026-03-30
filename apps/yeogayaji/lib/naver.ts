@@ -18,7 +18,7 @@ export function normalizeNaverMeLink(input: string): string | null {
   }
 }
 
-export function extractNaverMeCode(input: string): string | null {
+export function extractNaverMapCode(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
 
