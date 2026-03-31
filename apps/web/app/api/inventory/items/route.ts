@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
                 .select("inventory_item_id, type, quantity")
                 .eq("store_id", storeId),
         ]);
-
+        console.log('%capps/web/app/api/inventory/items/route.ts:41 items, txns', 'color: #007acc;', items);
         if (itemsError) {
             throw new Error(itemsError.message);
         }

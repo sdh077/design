@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "여기야지",
+  title: "여기가야지",
   description: "네이버 지도 링크 저장/조회",
 };
 
