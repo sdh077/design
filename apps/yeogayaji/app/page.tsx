@@ -35,7 +35,7 @@ export default async function HomePage() {
         <section className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
           <div className="space-y-2">
             <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-              여기야지
+              여기가야지
             </h1>
             <p className="text-sm text-zinc-600 dark:text-zinc-300">
               네이버 지도 링크를 탭별로 저장하고, 나중에 빠르게 찾아보세요.

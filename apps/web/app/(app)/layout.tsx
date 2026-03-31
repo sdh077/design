@@ -44,14 +44,15 @@ export default async function AppLayout({
                         <div className="space-y-1">
                             <NavLink href="/stores">매장 관리</NavLink>
                             <NavLink href="/pos-connections">POS 연결</NavLink>
-                            <NavLink href="/external-orders">외부 주문 현황</NavLink>
+                            <NavLink href="/menus">메뉴</NavLink>
+                            <NavLink href="/external-menus">외부 메뉴</NavLink>
                         </div>
                     </SidebarGroup>
 
                     <SidebarGroup>
                         <SidebarGroupLabel>Inventory</SidebarGroupLabel>
                         <div className="space-y-1">
-                            <NavLink href="/menus">메뉴</NavLink>
+                            <NavLink href="/external-orders">외부 주문</NavLink>
                             <NavLink href="/inventory">재고</NavLink>
                             <NavLink href="/inventory-snapshots">재고 스냅샷</NavLink>
                             <NavLink href="/recipes">레시피</NavLink>
