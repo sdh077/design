@@ -3,6 +3,11 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  --font-sans:
+    "Pretendard Variable", "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo",
+    "Malgun Gothic", system-ui, sans-serif;
+  --font-display:
+    "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
   --card: oklch(0.245 0.02 315);
   --border: oklch(0.37 0.03 315);
   --accent: oklch(0.31 0.07 320);
