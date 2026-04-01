@@ -13,7 +13,7 @@ export default async function MemberDashboardPage() {
         </p>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <div className="rounded-3xl border border-slate-200 bg-white p-5">
           <div className="text-sm text-slate-500">프로필 상태</div>
           <div className="mt-2 text-2xl font-semibold">
@@ -34,28 +34,28 @@ export default async function MemberDashboardPage() {
 
       <section className="rounded-3xl border border-slate-200 bg-white p-6">
         <h2 className="text-lg font-semibold">다음으로 할 일</h2>
-        <div className="mt-4 flex flex-wrap gap-3">
+        <div className="mt-4 grid gap-3 sm:flex sm:flex-wrap">
           <Link
             href="/onboarding"
-            className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white"
+            className="rounded-xl bg-slate-900 px-5 py-3 text-center text-sm font-medium text-white"
           >
             온보딩 이어서 작성
           </Link>
           <Link
             href="/member/profile"
-            className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium"
+            className="rounded-xl border border-slate-300 px-5 py-3 text-center text-sm font-medium"
           >
             내 프로필 보기
           </Link>
           <Link
             href="/member/profile/photos"
-            className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium"
+            className="rounded-xl border border-slate-300 px-5 py-3 text-center text-sm font-medium"
           >
             사진 올리기
           </Link>
           <Link
             href="/member/matches"
-            className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium"
+            className="rounded-xl border border-slate-300 px-5 py-3 text-center text-sm font-medium"
           >
             소개 진행 보기
           </Link>

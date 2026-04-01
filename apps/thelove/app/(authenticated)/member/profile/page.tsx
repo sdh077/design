@@ -9,23 +9,23 @@ export default async function MemberProfilePage() {
 
   return (
     <main className="space-y-6">
-      <header className="flex items-end justify-between gap-4">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">내 프로필</h1>
           <p className="mt-2 text-sm text-slate-600">
             중매자와 소개 상대에게 보여질 프로필 내용을 확인합니다.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="grid gap-3 sm:flex">
           <Link
             href="/member/profile/edit"
-            className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white"
+            className="rounded-xl bg-slate-900 px-5 py-3 text-center text-sm font-medium text-white"
           >
             프로필 수정
           </Link>
           <Link
             href="/member/profile/photos"
-            className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium"
+            className="rounded-xl border border-slate-300 px-5 py-3 text-center text-sm font-medium"
           >
             사진 관리
           </Link>

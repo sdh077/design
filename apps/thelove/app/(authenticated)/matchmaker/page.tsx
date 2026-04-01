@@ -15,7 +15,7 @@ export default async function MatchmakerDashboardPage() {
         </p>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-3xl border border-slate-200 bg-white p-5">
           <div className="text-sm text-slate-500">전체 코드</div>
           <div className="mt-2 text-3xl font-semibold">{summary.totalCodes}</div>
@@ -38,22 +38,22 @@ export default async function MatchmakerDashboardPage() {
 
       <section className="rounded-3xl border border-slate-200 bg-white p-6">
         <h2 className="text-lg font-semibold">빠른 이동</h2>
-        <div className="mt-4 flex flex-wrap gap-3">
+        <div className="mt-4 grid gap-3 sm:flex sm:flex-wrap">
           <Link
             href="/matchmaker/codes"
-            className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white"
+            className="rounded-xl bg-slate-900 px-5 py-3 text-center text-sm font-medium text-white"
           >
             코드 관리
           </Link>
           <Link
             href="/matchmaker/members"
-            className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium"
+            className="rounded-xl border border-slate-300 px-5 py-3 text-center text-sm font-medium"
           >
             회원 보기
           </Link>
           <Link
             href="/matchmaker/matches"
-            className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium"
+            className="rounded-xl border border-slate-300 px-5 py-3 text-center text-sm font-medium"
           >
             매칭 관리
           </Link>

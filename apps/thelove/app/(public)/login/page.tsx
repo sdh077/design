@@ -29,19 +29,21 @@ export default async function LoginPage({
     typeof params.inviteCode === "string" ? params.inviteCode : undefined;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 items-center">
-      <div className="grid w-full gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+    <div className="mx-auto flex w-full max-w-5xl flex-1 items-start py-2 sm:items-center">
+      <div className="grid w-full gap-6 sm:gap-8 lg:grid-cols-[0.9fr_1.1fr]">
         <section className="flex flex-col justify-center space-y-5">
           <div className="kurly-kicker">Sign In</div>
-          <h1 className="text-5xl text-slate-900">다시 이어가는 소개</h1>
-          <p className="max-w-md text-base leading-8 text-slate-600">
+          <h1 className="text-3xl text-slate-900 sm:text-4xl lg:text-5xl">
+            다시 이어가는 소개
+          </h1>
+          <p className="max-w-md text-sm leading-7 text-slate-600 sm:text-base sm:leading-8">
             theLove 계정으로 로그인하고 온보딩이나 현재 진행 중인 소개 화면으로
             바로 이동하세요.
           </p>
         </section>
 
-        <section className="kurly-panel rounded-[2rem] p-8">
-          <h2 className="mb-2 text-3xl text-slate-900">로그인</h2>
+        <section className="kurly-panel rounded-[1.75rem] p-5 sm:rounded-[2rem] sm:p-8">
+          <h2 className="mb-2 text-2xl text-slate-900 sm:text-3xl">로그인</h2>
           <p className="mb-6 text-sm text-slate-600">
             이메일과 비밀번호를 입력해 계속 진행합니다.
           </p>
@@ -64,7 +66,7 @@ export default async function LoginPage({
             </div>
           ) : null}
 
-          <div className="rounded-[1.6rem] border border-white/8 bg-white/4 p-6">
+          <div className="rounded-[1.35rem] border border-white/8 bg-white/4 p-4 sm:rounded-[1.6rem] sm:p-6">
             <LoginForm next={next} inviteCode={inviteCode} />
           </div>
 
