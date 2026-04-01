@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { normalizeNaverMeLink } from "@/lib/naver";
+import { parseNaverShareInput } from "@/lib/naver";
 import type { PlaceTab } from "@/types/place-tab";
 
 export function PlaceForm({
@@ -28,9 +28,9 @@ export function PlaceForm({
     e.preventDefault();
     setError(null);
 
-    const normalized = normalizeNaverMeLink(naverMapLink);
-    if (!normalized) {
-      setError("네이버 지도 링크를 입력해 주세요.");
+    const parsed = parseNaverShareInput(naverMapLink);
+    if (!parsed.normalizedLink) {
+      setError("네이버 지도 링크 또는 공유 텍스트를 입력해 주세요.");
       return;
     }
 
@@ -48,9 +48,9 @@ export function PlaceForm({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          place_name: placeName.trim() || null,
+          place_name: placeName.trim() || parsed.placeName || null,
           description: description.trim() || null,
-          naver_map_link: normalized,
+          naver_map_link: parsed.normalizedLink,
           tab_id: tabId,
         }),
       });
@@ -117,11 +117,14 @@ export function PlaceForm({
         </label>
 
         <label className="block">
-          <span className="mb-2 block text-sm font-medium">네이버 지도 링크</span>
+          <span className="mb-2 block text-sm font-medium">
+            네이버 지도 링크 또는 공유 텍스트
+          </span>
           <input
             value={naverMapLink}
             onChange={(e) => setNaverMapLink(e.target.value)}
             disabled={loading}
+            placeholder="https://naver.me/... 또는 네이버지도 공유 문구 전체"
             className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900"
           />
         </label>

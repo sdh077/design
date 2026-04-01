@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { extractNaverMapCode, normalizeNaverMeLink } from "@/lib/naver";
+import {
+  extractNaverMapCode,
+  normalizeNaverMeLink,
+  parseNaverShareInput,
+} from "@/lib/naver";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -22,11 +26,12 @@ export async function POST(req: NextRequest) {
     }
     | null;
 
-  const normalized = normalizeNaverMeLink(body?.naver_map_link ?? "");
+  const parsed = parseNaverShareInput(body?.naver_map_link ?? "");
+  const normalized = parsed.normalizedLink ?? normalizeNaverMeLink(body?.naver_map_link ?? "");
 
   if (!normalized) {
     return NextResponse.json(
-      { message: "올바른 네이버 지도 링크를 입력해 주세요." },
+      { message: "올바른 네이버 지도 링크 또는 공유 텍스트를 입력해 주세요." },
       { status: 400 }
     );
   }
@@ -36,7 +41,7 @@ export async function POST(req: NextRequest) {
   const payload = {
     user_id: user.id,
     tab_id: body?.tab_id ?? null,
-    place_name: body?.place_name?.trim() || null,
+    place_name: body?.place_name?.trim() || parsed.placeName || null,
     description: body?.description?.trim() || null,
     naver_map_link: normalized,
     naver_map_code: naverMapCode,

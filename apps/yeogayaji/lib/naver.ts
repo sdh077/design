@@ -1,5 +1,52 @@
-export function normalizeNaverMeLink(input: string): string | null {
+type ParsedNaverShareInput = {
+  normalizedLink: string | null;
+  placeName: string | null;
+};
+
+function extractUrlCandidate(input: string): string | null {
   const trimmed = input.trim();
+  if (!trimmed) return null;
+
+  const matches = [
+    ...trimmed.matchAll(/https?:\/\/[^\s]+|(?:^|\s)(naver\.me\/[A-Za-z0-9]+)(?=\s|$)/gi),
+  ];
+
+  if (!matches.length) {
+    return trimmed;
+  }
+
+  const last = matches[matches.length - 1];
+  return (last[1] ?? last[0]).trim();
+}
+
+function extractPlaceNameCandidate(input: string): string | null {
+  const lines = input
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    if (/^https?:\/\//i.test(line) || /^naver\.me\//i.test(line)) continue;
+    if (/^\[[^\]]+\]$/.test(line)) continue;
+    if (/^(네이버지도|naver map)$/i.test(line)) continue;
+    return line;
+  }
+
+  return null;
+}
+
+export function parseNaverShareInput(input: string): ParsedNaverShareInput {
+  const urlCandidate = extractUrlCandidate(input);
+
+  return {
+    normalizedLink: urlCandidate ? normalizeNaverMeLink(urlCandidate) : null,
+    placeName: extractPlaceNameCandidate(input),
+  };
+}
+
+export function normalizeNaverMeLink(input: string): string | null {
+  const extracted = extractUrlCandidate(input);
+  const trimmed = extracted?.trim() ?? "";
   if (!trimmed) return null;
 
   const withProtocol = /^https?:\/\//i.test(trimmed)
@@ -19,7 +66,8 @@ export function normalizeNaverMeLink(input: string): string | null {
 }
 
 export function extractNaverMapCode(input: string): string | null {
-  const trimmed = input.trim();
+  const extracted = extractUrlCandidate(input);
+  const trimmed = extracted?.trim() ?? "";
   if (!trimmed) return null;
 
   const withProtocol = /^https?:\/\//i.test(trimmed)
@@ -110,4 +158,3 @@ export async function extractNaverPlaceName(
     clearTimeout(timeout);
   }
 }
-

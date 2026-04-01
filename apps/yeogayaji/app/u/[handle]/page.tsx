@@ -74,11 +74,6 @@ export default async function PublicUserPage({
                     <h1 className="text-3xl font-semibold tracking-tight">
                         {profile.display_name || `${profile.handle}의 추천 리스트`}
                     </h1>
-                    {profile.bio ? (
-                        <p className="mt-4 max-w-2xl text-sm leading-6 text-white/70">
-                            {profile.bio}
-                        </p>
-                    ) : null}
                 </div>
 
                 <div className="grid gap-4">

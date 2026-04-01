@@ -116,8 +116,8 @@ export default async function PlacesPage({
             네이버 지도 링크 저장
           </h1>
           <p className="mt-2 text-sm text-zinc-500">
-            아래에 <code>https://naver.me/...</code> 형태의 링크를 저장하고,
-            공개 추천 페이지로도 보여줄 수 있어요.
+            아래에 <code>https://naver.me/...</code> 링크나 네이버지도 공유 문구 전체를
+            붙여넣으면 저장할 수 있고, 공개 추천 페이지로도 보여줄 수 있어요.
           </p>
         </section>
 
