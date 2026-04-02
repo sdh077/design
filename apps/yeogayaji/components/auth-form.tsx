@@ -171,18 +171,13 @@ export function SignupForm({ next }: { next: string }) {
 
 export function LogoutButton({ next = "/login" }: { next?: string }) {
   const router = useRouter();
-
   const [loading, setLoading] = useState(false);
 
-  const onLogout = async () => {
+  const onLogout = () => {
     setLoading(true);
-    try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-      router.push(next);
-    } finally {
-      setLoading(false);
-    }
+    router.push(
+      next === "/login" ? "/auth/logout" : `/auth/logout?next=${encodeURIComponent(next)}`
+    );
   };
 
   return (
@@ -196,4 +191,3 @@ export function LogoutButton({ next = "/login" }: { next?: string }) {
     </button>
   );
 }
-
