@@ -3,33 +3,32 @@ type ParsedNaverShareInput = {
   placeName: string | null;
 };
 
+function splitShareLines(input: string) {
+  return input
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 function extractUrlCandidate(input: string): string | null {
-  const trimmed = input.trim();
-  if (!trimmed) return null;
+  const lines = splitShareLines(input);
 
-  const matches = [
-    ...trimmed.matchAll(/https?:\/\/[^\s]+|(?:^|\s)(naver\.me\/[A-Za-z0-9]+)(?=\s|$)/gi),
-  ];
-
-  if (!matches.length) {
-    return trimmed;
+  if (lines.length === 1) {
+    return lines[0];
   }
 
-  const last = matches[matches.length - 1];
-  return (last[1] ?? last[0]).trim();
+  if (lines.length === 4) {
+    return lines[3];
+  }
+
+  return null;
 }
 
 function extractPlaceNameCandidate(input: string): string | null {
-  const lines = input
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+  const lines = splitShareLines(input);
 
-  for (const line of lines) {
-    if (/^https?:\/\//i.test(line) || /^naver\.me\//i.test(line)) continue;
-    if (/^\[[^\]]+\]$/.test(line)) continue;
-    if (/^(네이버지도|naver map)$/i.test(line)) continue;
-    return line;
+  if (lines.length === 4) {
+    return lines[1];
   }
 
   return null;

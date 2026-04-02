@@ -80,6 +80,19 @@ export function PlaceForm({
     >
       <div className="grid gap-4">
         <label className="block">
+          <span className="mb-2 block text-sm font-medium">
+            네이버 지도 링크 또는 공유 텍스트
+          </span>
+          <input
+            value={naverMapLink}
+            onChange={(e) => setNaverMapLink(e.target.value)}
+            disabled={loading}
+            placeholder="링크 1줄 또는 네이버지도 공유문구 4줄"
+            className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900"
+          />
+        </label>
+
+        <label className="block">
           <span className="mb-2 block text-sm font-medium">이름 (선택)</span>
           <input
             value={placeName}
@@ -114,19 +127,6 @@ export function PlaceForm({
               </option>
             ))}
           </select>
-        </label>
-
-        <label className="block">
-          <span className="mb-2 block text-sm font-medium">
-            네이버 지도 링크 또는 공유 텍스트
-          </span>
-          <input
-            value={naverMapLink}
-            onChange={(e) => setNaverMapLink(e.target.value)}
-            disabled={loading}
-            placeholder="https://naver.me/... 또는 네이버지도 공유 문구 전체"
-            className="w-full rounded-2xl border border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800 dark:bg-zinc-900"
-          />
         </label>
 
         {error ? <p className="text-sm text-red-500">{error}</p> : null}
