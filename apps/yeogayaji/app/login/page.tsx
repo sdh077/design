@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LoginForm } from "@/components/auth-form";
@@ -28,8 +29,16 @@ export default async function LoginPage({
         <div className="mt-5">
           <LoginForm next={next || "/places"} />
         </div>
+        <p className="mt-4 text-sm text-zinc-600 dark:text-zinc-300">
+          계정이 없나요?{" "}
+          <Link
+            href={next ? `/signup?next=${encodeURIComponent(next)}` : "/signup"}
+            className="font-semibold text-zinc-900 underline dark:text-zinc-100"
+          >
+            회원가입
+          </Link>
+        </p>
       </div>
     </main>
   );
 }
-
