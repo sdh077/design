@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import PlaceTabs from "./PlaceTabs";
 
 type PublicProfile = {
     id: string;
@@ -10,6 +10,12 @@ type PublicProfile = {
     is_public: boolean;
 };
 
+type PlaceTab = {
+    id: string;
+    name: string;
+    is_default: boolean;
+};
+
 type PublicPlace = {
     id: string;
     place_name: string | null;
@@ -17,6 +23,7 @@ type PublicPlace = {
     description: string | null;
     sort_order: number;
     created_at: string;
+    tab_id: string | null;
 };
 
 export default async function PublicUserPage({
@@ -48,14 +55,23 @@ export default async function PublicUserPage({
         notFound();
     }
 
-    const { data: places, error: placesError } = await supabase
-        .from("places")
-        .select("id, place_name, naver_map_link, description, sort_order, created_at")
-        .eq("user_id", profile.id)
-        .eq("is_recommended", true)
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: false })
-        .returns<PublicPlace[]>();
+    const [{ data: rawTabs }, { data: rawPlaces, error: placesError }] = await Promise.all([
+        supabase
+            .from("place_tabs")
+            .select("id, name, is_default")
+            .eq("user_id", profile.id)
+            .order("created_at", { ascending: true }),
+        supabase
+            .from("places")
+            .select("id, place_name, naver_map_link, description, sort_order, created_at, tab_id")
+            .eq("user_id", profile.id)
+            .eq("is_recommended", true)
+            .order("sort_order", { ascending: true })
+            .order("created_at", { ascending: false }),
+    ]);
+
+    const tabs = (rawTabs as PlaceTab[] | null) ?? [];
+    const places = (rawPlaces as PublicPlace[] | null) ?? [];
 
     if (placesError) {
         return (
@@ -76,47 +92,53 @@ export default async function PublicUserPage({
                     </h1>
                 </div>
 
-                <div className="grid gap-4">
-                    {places && places.length > 0 ? (
-                        places.map((place, index) => (
-                            <article
-                                key={place.id}
-                                className="group rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:bg-white/10"
-                            >
-                                <div className="mb-3 flex items-start justify-between gap-4">
-                                    <div>
-                                        <p className="mb-2 text-xs text-white/40">
-                                            추천 {index + 1}
-                                        </p>
-                                        <h2 className="text-xl font-medium">
-                                            {place.place_name?.trim() || "네이버 지도 추천 장소"}
-                                        </h2>
-                                    </div>
-                                </div>
-
-                                {place.description ? (
-                                    <p className="mb-5 text-sm leading-6 text-white/70 whitespace-pre-line">
-                                        {place.description}
-                                    </p>
-                                ) : null}
-
-                                <Link
-                                    href={place.naver_map_link}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-white transition hover:bg-white hover:text-black"
-                                >
-                                    네이버 지도 보기
-                                </Link>
-                            </article>
-                        ))
-                    ) : (
-                        <div className="rounded-3xl border border-dashed border-white/10 p-10 text-center text-sm text-white/50">
-                            아직 공개된 추천 장소가 없습니다.
-                        </div>
-                    )}
-                </div>
+                {places.length === 0 ? (
+                    <div className="rounded-3xl border border-dashed border-white/10 p-10 text-center text-sm text-white/50">
+                        아직 공개된 추천 장소가 없습니다.
+                    </div>
+                ) : tabs.length > 0 ? (
+                    <PlaceTabs tabs={tabs} places={places} />
+                ) : (
+                    <PlaceList places={places} />
+                )}
             </section>
         </main>
+    );
+}
+
+function PlaceList({ places }: { places: PublicPlace[] }) {
+    return (
+        <div className="grid gap-4">
+            {places.map((place, index) => (
+                <article
+                    key={place.id}
+                    className="group rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:bg-white/10"
+                >
+                    <div className="mb-3 flex items-start justify-between gap-4">
+                        <div>
+                            <p className="mb-2 text-xs text-white/40">추천 {index + 1}</p>
+                            <h3 className="text-xl font-medium">
+                                {place.place_name?.trim() || "네이버 지도 추천 장소"}
+                            </h3>
+                        </div>
+                    </div>
+
+                    {place.description ? (
+                        <p className="mb-5 text-sm leading-6 text-white/70 whitespace-pre-line">
+                            {place.description}
+                        </p>
+                    ) : null}
+
+                    <a
+                        href={place.naver_map_link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-white transition hover:bg-white hover:text-black"
+                    >
+                        네이버 지도 보기
+                    </a>
+                </article>
+            ))}
+        </div>
     );
 }

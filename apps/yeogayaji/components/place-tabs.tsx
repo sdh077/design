@@ -130,18 +130,16 @@ export function PlaceTabs({
                     {t.name}
                   </button>
 
-                  {!t.is_default ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRenamingId(t.id);
-                        setRenameValue(t.name);
-                      }}
-                      className="rounded-lg px-2 py-1 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                    >
-                      이름변경
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRenamingId(t.id);
+                      setRenameValue(t.name);
+                    }}
+                    className="rounded-lg px-2 py-1 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    이름변경
+                  </button>
                 </>
               )}
             </div>
