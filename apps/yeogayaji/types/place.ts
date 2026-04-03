@@ -9,4 +9,6 @@ export type Place = {
   is_recommended: boolean;
   sort_order: number;
   created_at: string;
+  lat: number | null;
+  lng: number | null;
 };

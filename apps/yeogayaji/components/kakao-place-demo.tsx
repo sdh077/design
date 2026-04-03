@@ -150,6 +150,8 @@ export function KakaoPlaceDemo({ tabs }: { tabs: PlaceTab[] }) {
           address: place.road_address_name || place.address_name,
           description: description.trim() || null,
           tab_id: tabId || null,
+          lat: parseFloat(place.y),
+          lng: parseFloat(place.x),
         }),
       });
 

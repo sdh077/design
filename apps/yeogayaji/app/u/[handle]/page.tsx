@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import PlaceTabs from "./PlaceTabs";
+import PlaceMap from "./PlaceMap";
 
 type PublicProfile = {
     id: string;
@@ -24,6 +25,8 @@ type PublicPlace = {
     sort_order: number;
     created_at: string;
     tab_id: string | null;
+    lat: number | null;
+    lng: number | null;
 };
 
 export default async function PublicUserPage({
@@ -63,7 +66,7 @@ export default async function PublicUserPage({
             .order("created_at", { ascending: true }),
         supabase
             .from("places")
-            .select("id, place_name, naver_map_link, description, sort_order, created_at, tab_id")
+            .select("id, place_name, naver_map_link, description, sort_order, created_at, tab_id, lat, lng")
             .eq("user_id", profile.id)
             .eq("is_recommended", true)
             .order("sort_order", { ascending: true })
@@ -83,6 +86,11 @@ export default async function PublicUserPage({
         );
     }
 
+    const mappablePlaces = places.filter(
+        (p): p is PublicPlace & { lat: number; lng: number } =>
+            p.lat !== null && p.lng !== null
+    );
+
     return (
         <main className="min-h-screen bg-neutral-950 text-white">
             <section className="mx-auto max-w-4xl px-6 py-16">
@@ -96,10 +104,15 @@ export default async function PublicUserPage({
                     <div className="rounded-3xl border border-dashed border-white/10 p-10 text-center text-sm text-white/50">
                         아직 공개된 추천 장소가 없습니다.
                     </div>
-                ) : tabs.length > 0 ? (
-                    <PlaceTabs tabs={tabs} places={places} />
                 ) : (
-                    <PlaceList places={places} />
+                    <>
+                        <PlaceMap places={mappablePlaces} />
+                        {tabs.length > 0 ? (
+                            <PlaceTabs tabs={tabs} places={places} />
+                        ) : (
+                            <PlaceList places={places} />
+                        )}
+                    </>
                 )}
             </section>
         </main>

@@ -17,6 +17,8 @@ export async function POST(req: NextRequest) {
     address: string;
     description?: string | null;
     tab_id?: string | null;
+    lat?: number | null;
+    lng?: number | null;
   } | null;
 
   if (!body?.place_name || !body?.place_url) {
@@ -34,6 +36,8 @@ export async function POST(req: NextRequest) {
       naver_map_code: "",
       is_recommended: true,
       sort_order: 0,
+      lat: body.lat ?? null,
+      lng: body.lng ?? null,
     })
     .select("*")
     .single();
