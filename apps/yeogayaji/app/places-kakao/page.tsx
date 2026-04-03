@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { KakaoPlaceDemo } from "@/components/kakao-place-demo";
+import type { PlaceTab } from "@/types/place-tab";
 
 export default async function PlacesKakaoPage() {
   const supabase = await createClient();
@@ -13,6 +14,14 @@ export default async function PlacesKakaoPage() {
     redirect("/login");
   }
 
+  const { data: tabsData } = await supabase
+    .from("place_tabs")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: true });
+
+  const tabs = (tabsData ?? []) as PlaceTab[];
+
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
       <div className="mb-6 flex items-center justify-between">
@@ -21,7 +30,7 @@ export default async function PlacesKakaoPage() {
             카카오 장소 검색 (비교용)
           </h1>
           <p className="mt-1 text-sm text-zinc-500">
-            장소명으로 검색 → 지도에서 확인하는 방식입니다.
+            장소명으로 검색 → 지도에서 확인 → 저장하는 방식입니다.
           </p>
         </div>
         <Link
@@ -32,7 +41,7 @@ export default async function PlacesKakaoPage() {
         </Link>
       </div>
 
-      <KakaoPlaceDemo />
+      <KakaoPlaceDemo tabs={tabs} />
     </main>
   );
 }
