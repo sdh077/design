@@ -37,7 +37,7 @@ export function PlaceList({ places }: { places: Place[] }) {
     const onPatch = async (
         id: string,
         payload: Partial<
-            Pick<Place, "is_recommended" | "sort_order" | "description">
+            Pick<Place, "is_recommended" | "sort_order" | "description" | "naver_map_link">
         >
     ) => {
         try {
@@ -76,23 +76,18 @@ export function PlaceList({ places }: { places: Place[] }) {
                                 {p.place_name?.trim() ? p.place_name : "네이버 지도"}
                             </h3>
 
-                            {/* 🔥 description 자동 저장 */}
-                            <div className="mt-3">
+                            <div className="mt-3 space-y-3">
                                 <DescriptionEditor
                                     value={p.description ?? ""}
                                     placeId={p.id}
                                     onSave={onPatch}
                                 />
+                                <NaverLinkEditor
+                                    value={p.naver_map_link ?? ""}
+                                    placeId={p.id}
+                                    onSave={onPatch}
+                                />
                             </div>
-
-                            <a
-                                href={p.naver_map_link}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="mt-4 inline-flex text-sm text-blue-600 underline underline-offset-4 dark:text-blue-400"
-                            >
-                                {p.naver_map_link}
-                            </a>
                         </div>
 
                         <div className="flex w-full flex-col gap-3 md:w-[220px]">
@@ -149,7 +144,7 @@ function DescriptionEditor({
     placeId: string;
     onSave: (
         id: string,
-        payload: Partial<Pick<Place, "description">>
+        payload: Partial<Pick<Place, "description" | "naver_map_link">>
     ) => Promise<void>;
 }) {
     const [text, setText] = useState(value ?? "");
@@ -180,6 +175,65 @@ function DescriptionEditor({
                 className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
             />
 
+            <p className="text-xs text-zinc-400">
+                {saving ? "저장 중..." : "자동 저장됨"}
+            </p>
+        </div>
+    );
+}
+
+function NaverLinkEditor({
+    value,
+    placeId,
+    onSave,
+}: {
+    value: string;
+    placeId: string;
+    onSave: (
+        id: string,
+        payload: Partial<Pick<Place, "naver_map_link">>
+    ) => Promise<void>;
+}) {
+    const [text, setText] = useState(value ?? "");
+    const [saving, setSaving] = useState(false);
+
+    const debounced = useDebounce(text, 800);
+
+    useEffect(() => {
+        if (debounced === value) return;
+
+        const run = async () => {
+            setSaving(true);
+            await onSave(placeId, { naver_map_link: debounced });
+            setSaving(false);
+        };
+
+        run();
+    }, [debounced]);
+
+    return (
+        <div className="space-y-1">
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                네이버 지도 링크
+            </label>
+            <div className="flex gap-2">
+                <input
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    placeholder="https://naver.me/..."
+                    className="flex-1 rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                />
+                {text && (
+                    <a
+                        href={text}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-xl border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                        열기
+                    </a>
+                )}
+            </div>
             <p className="text-xs text-zinc-400">
                 {saving ? "저장 중..." : "자동 저장됨"}
             </p>

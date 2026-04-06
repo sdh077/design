@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { PlaceForm } from "@/components/place-form";
-import { PlaceList } from "@/components/place-list";
+import { KakaoPlaceDemo } from "@/components/kakao-place-demo";
 import { PlaceTabs } from "@/components/place-tabs";
+import { PlaceList } from "@/components/place-list";
 import { PublicProfileForm } from "@/components/public-profile-form";
 import type { Place } from "@/types/place";
 import type { PlaceTab } from "@/types/place-tab";
@@ -112,12 +112,9 @@ export default async function PlacesPage({
     <main className="mx-auto max-w-5xl px-6 py-10">
       <div className="space-y-8">
         <section>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            네이버 지도 링크 저장
-          </h1>
+          <h1 className="text-3xl font-semibold tracking-tight">내 장소</h1>
           <p className="mt-2 text-sm text-zinc-500">
-            아래에 <code>https://naver.me/...</code> 링크나 네이버지도 공유 문구 전체를
-            붙여넣으면 저장할 수 있고, 공개 추천 페이지로도 보여줄 수 있어요.
+            카카오 장소 검색으로 추가하고 공개 추천 페이지로 공유해보세요.
           </p>
         </section>
 
@@ -129,13 +126,13 @@ export default async function PlacesPage({
           publicUrlBase={publicUrlBase}
         />
 
-        <PlaceForm tabs={tabs} selectedTabId={selectedTabId} />
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">장소 추가</h2>
+          <KakaoPlaceDemo tabs={tabs} />
+        </section>
 
         <section className="space-y-4">
-          <div>
-            <h2 className="text-xl font-semibold">저장된 링크 (탭)</h2>
-          </div>
-
+          <h2 className="text-xl font-semibold">저장된 장소</h2>
           <PlaceTabs tabs={tabs} selectedTabId={selectedTabId} />
           <PlaceList places={places} />
         </section>

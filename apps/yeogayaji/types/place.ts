@@ -11,4 +11,5 @@ export type Place = {
   created_at: string;
   lat: number | null;
   lng: number | null;
+  kakao_map_link: string | null;
 };

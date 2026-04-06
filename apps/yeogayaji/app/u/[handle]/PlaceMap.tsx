@@ -20,7 +20,7 @@ export default function PlaceMap({ places }: { places: PlaceWithCoords[] }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const [mapReady, setMapReady] = useState(false);
-  const [show, setShow] = useState(false);
+  const [show, setShow] = useState(true);
 
   useEffect(() => {
     if (!show) return;
@@ -77,24 +77,21 @@ export default function PlaceMap({ places }: { places: PlaceWithCoords[] }) {
   if (places.length === 0) return null;
 
   return (
-    <div className="mb-8">
+    <div className="space-y-3">
+      <div className="relative overflow-hidden rounded-2xl bg-white" style={{ height: show ? 320 : 0, transition: "height 0.3s ease" }}>
+        <div ref={mapContainerRef} className="absolute inset-0" />
+        {show && !mapReady && (
+          <div className="absolute inset-0 flex items-center justify-center bg-[#F2F4F6] text-sm text-[#B0B8C1]">
+            지도 로딩 중…
+          </div>
+        )}
+      </div>
       <button
         onClick={() => setShow((v) => !v)}
-        className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 px-5 py-2 text-sm font-medium text-white transition hover:bg-white/10"
+        className="w-full rounded-2xl bg-white py-3.5 text-sm font-semibold text-[#4E5968] transition hover:bg-[#E5E8EB]"
       >
-        {show ? "목록으로 보기" : "지도로 보기"}
+        {show ? "지도 닫기" : "지도로 보기"}
       </button>
-
-      {show && (
-        <div className="relative h-[420px] overflow-hidden rounded-3xl border border-white/10 md:h-[560px]">
-          <div ref={mapContainerRef} className="absolute inset-0" />
-          {!mapReady && (
-            <div className="absolute inset-0 flex items-center justify-center bg-neutral-900 text-sm text-white/40">
-              지도 로딩 중…
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

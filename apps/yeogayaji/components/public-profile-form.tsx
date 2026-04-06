@@ -130,9 +130,22 @@ export function PublicProfileForm({
                 {previewUrl ? (
                     <div className="rounded-2xl bg-zinc-50 px-4 py-3 text-sm dark:bg-zinc-900">
                         <p className="text-zinc-500 dark:text-zinc-400">공개 주소</p>
-                        <p className="mt-1 break-all font-medium text-zinc-900 dark:text-zinc-100">
-                            {previewUrl}
-                        </p>
+                        <div className="mt-1 flex items-center justify-between gap-3">
+                            <p className="break-all font-medium text-zinc-900 dark:text-zinc-100">
+                                {previewUrl}
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(previewUrl).then(() => {
+                                        setMessage("주소를 복사했습니다.");
+                                    });
+                                }}
+                                className="shrink-0 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-medium transition hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                            >
+                                복사
+                            </button>
+                        </div>
                     </div>
                 ) : null}
 

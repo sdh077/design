@@ -22,6 +22,7 @@ export async function PATCH(req: NextRequest, { params }: Context) {
       is_recommended?: boolean;
       sort_order?: number;
       description?: string | null;
+      naver_map_link?: string | null;
     }
     | null;
 
@@ -37,6 +38,10 @@ export async function PATCH(req: NextRequest, { params }: Context) {
 
   if (typeof body?.description !== "undefined") {
     updatePayload.description = body.description?.trim() || null;
+  }
+
+  if (typeof body?.naver_map_link !== "undefined") {
+    updatePayload.naver_map_link = body.naver_map_link?.trim() || null;
   }
 
   if (!Object.keys(updatePayload).length) {

@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import PlaceTabs from "./PlaceTabs";
 import PlaceMap from "./PlaceMap";
+import { PlaceCard } from "./PlaceCard";
+import type { PublicPlace, PlaceTab } from "./types";
 
 type PublicProfile = {
     id: string;
@@ -9,24 +11,6 @@ type PublicProfile = {
     display_name: string | null;
     bio: string | null;
     is_public: boolean;
-};
-
-type PlaceTab = {
-    id: string;
-    name: string;
-    is_default: boolean;
-};
-
-type PublicPlace = {
-    id: string;
-    place_name: string | null;
-    naver_map_link: string;
-    description: string | null;
-    sort_order: number;
-    created_at: string;
-    tab_id: string | null;
-    lat: number | null;
-    lng: number | null;
 };
 
 export default async function PublicUserPage({
@@ -44,17 +28,7 @@ export default async function PublicUserPage({
         .eq("is_public", true)
         .maybeSingle<PublicProfile>();
 
-    if (profileError) {
-        return (
-            <main className="mx-auto max-w-4xl px-6 py-16">
-                <p className="text-sm text-red-500">
-                    프로필을 불러오지 못했습니다: {profileError.message}
-                </p>
-            </main>
-        );
-    }
-
-    if (!profile) {
+    if (profileError || !profile) {
         notFound();
     }
 
@@ -66,25 +40,17 @@ export default async function PublicUserPage({
             .order("created_at", { ascending: true }),
         supabase
             .from("places")
-            .select("id, place_name, naver_map_link, description, sort_order, created_at, tab_id, lat, lng")
+            .select("id, place_name, naver_map_link, kakao_map_link, description, sort_order, created_at, tab_id, lat, lng")
             .eq("user_id", profile.id)
             .eq("is_recommended", true)
             .order("sort_order", { ascending: true })
             .order("created_at", { ascending: false }),
     ]);
 
+    if (placesError) notFound();
+
     const tabs = (rawTabs as PlaceTab[] | null) ?? [];
     const places = (rawPlaces as PublicPlace[] | null) ?? [];
-
-    if (placesError) {
-        return (
-            <main className="mx-auto max-w-4xl px-6 py-16">
-                <p className="text-sm text-red-500">
-                    추천 리스트를 불러오지 못했습니다: {placesError.message}
-                </p>
-            </main>
-        );
-    }
 
     const mappablePlaces = places.filter(
         (p): p is PublicPlace & { lat: number; lng: number } =>
@@ -92,21 +58,33 @@ export default async function PublicUserPage({
     );
 
     return (
-        <main className="min-h-screen bg-neutral-950 text-white">
-            <section className="mx-auto max-w-4xl px-6 py-16">
-                <div className="mb-10 rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur">
-                    <h1 className="text-3xl font-semibold tracking-tight">
+        <div className="min-h-screen bg-[#F2F4F6]">
+            {/* 프로필 헤더 */}
+            <div className="bg-white px-5 pb-6 pt-10">
+                <div className="mx-auto max-w-lg">
+                    <p className="mb-1 text-xs font-medium text-[#6B7684]">@{profile.handle}</p>
+                    <h1 className="text-2xl font-bold tracking-tight text-[#191F28]">
                         {profile.display_name || `${profile.handle}의 추천 리스트`}
                     </h1>
+                    {profile.bio && (
+                        <p className="mt-2 text-sm leading-relaxed text-[#6B7684]">{profile.bio}</p>
+                    )}
                 </div>
+            </div>
 
+            <div className="mx-auto max-w-lg px-5 pb-16 pt-4 space-y-4">
                 {places.length === 0 ? (
-                    <div className="rounded-3xl border border-dashed border-white/10 p-10 text-center text-sm text-white/50">
-                        아직 공개된 추천 장소가 없습니다.
+                    <div className="rounded-2xl bg-white px-6 py-12 text-center">
+                        <p className="text-sm text-[#B0B8C1]">아직 공개된 추천 장소가 없습니다.</p>
                     </div>
                 ) : (
                     <>
-                        <PlaceMap places={mappablePlaces} />
+                        {/* 지도 */}
+                        {mappablePlaces.length > 0 && (
+                            <PlaceMap places={mappablePlaces} />
+                        )}
+
+                        {/* 탭 + 목록 */}
                         {tabs.length > 0 ? (
                             <PlaceTabs tabs={tabs} places={places} />
                         ) : (
@@ -114,44 +92,18 @@ export default async function PublicUserPage({
                         )}
                     </>
                 )}
-            </section>
-        </main>
+            </div>
+        </div>
     );
 }
 
 function PlaceList({ places }: { places: PublicPlace[] }) {
     return (
-        <div className="grid gap-4">
-            {places.map((place, index) => (
-                <article
-                    key={place.id}
-                    className="group rounded-3xl border border-white/10 bg-white/5 p-6 transition hover:bg-white/10"
-                >
-                    <div className="mb-3 flex items-start justify-between gap-4">
-                        <div>
-                            <p className="mb-2 text-xs text-white/40">추천 {index + 1}</p>
-                            <h3 className="text-xl font-medium">
-                                {place.place_name?.trim() || "네이버 지도 추천 장소"}
-                            </h3>
-                        </div>
-                    </div>
-
-                    {place.description ? (
-                        <p className="mb-5 text-sm leading-6 text-white/70 whitespace-pre-line">
-                            {place.description}
-                        </p>
-                    ) : null}
-
-                    <a
-                        href={place.naver_map_link}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-white transition hover:bg-white hover:text-black"
-                    >
-                        네이버 지도 보기
-                    </a>
-                </article>
+        <div className="space-y-3">
+            {places.map((place) => (
+                <PlaceCard key={place.id} place={place} />
             ))}
         </div>
     );
 }
+

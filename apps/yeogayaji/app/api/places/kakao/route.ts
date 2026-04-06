@@ -25,6 +25,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "장소 정보가 올바르지 않습니다." }, { status: 400 });
   }
 
+  const lat = body.lat ?? null;
+  const lng = body.lng ?? null;
+  const naverLink = lat && lng
+    ? `https://map.naver.com/p?c=${lng},${lat},15,0,0,0,dh`
+    : "";
+
   const { data, error } = await supabase
     .from("places")
     .insert({
@@ -32,12 +38,13 @@ export async function POST(req: NextRequest) {
       tab_id: body.tab_id ?? null,
       place_name: body.place_name.trim(),
       description: body.description?.trim() || null,
-      naver_map_link: body.place_url,
+      kakao_map_link: body.place_url,
+      naver_map_link: naverLink,
       naver_map_code: "",
       is_recommended: true,
       sort_order: 0,
-      lat: body.lat ?? null,
-      lng: body.lng ?? null,
+      lat,
+      lng,
     })
     .select("*")
     .single();
