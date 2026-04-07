@@ -7,9 +7,10 @@ import type { PublicPlace, PlaceTab } from "./types";
 type Props = {
     tabs: PlaceTab[];
     places: PublicPlace[];
+    viewerTabs?: PlaceTab[];
 };
 
-export default function PlaceTabs({ tabs, places }: Props) {
+export default function PlaceTabs({ tabs, places, viewerTabs }: Props) {
     const [activeTabId, setActiveTabId] = useState<string>(
         tabs.find((t) => t.is_default)?.id ?? tabs[0]?.id ?? ""
     );
@@ -43,7 +44,7 @@ export default function PlaceTabs({ tabs, places }: Props) {
             ) : (
                 <div className="space-y-3">
                     {visiblePlaces.map((place) => (
-                        <PlaceCard key={place.id} place={place} />
+                        <PlaceCard key={place.id} place={place} viewerTabs={viewerTabs} />
                     ))}
                 </div>
             )}

@@ -21,6 +21,9 @@ export default async function PublicUserPage({
     const { handle } = await params;
     const supabase = await createClient();
 
+    // 현재 로그인한 뷰어 정보
+    const { data: { user: viewer } } = await supabase.auth.getUser();
+
     const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("id, handle, display_name, bio, is_public")
@@ -51,6 +54,17 @@ export default async function PublicUserPage({
 
     const tabs = (rawTabs as PlaceTab[] | null) ?? [];
     const places = (rawPlaces as PublicPlace[] | null) ?? [];
+
+    // 뷰어 탭 (로그인한 경우 + 본인 페이지가 아닌 경우)
+    let viewerTabs: PlaceTab[] = [];
+    if (viewer && viewer.id !== profile.id) {
+        const { data: vTabs } = await supabase
+            .from("place_tabs")
+            .select("id, name, is_default")
+            .eq("user_id", viewer.id)
+            .order("created_at", { ascending: true });
+        viewerTabs = (vTabs as PlaceTab[] | null) ?? [];
+    }
 
     const mappablePlaces = places.filter(
         (p): p is PublicPlace & { lat: number; lng: number } =>
@@ -86,9 +100,9 @@ export default async function PublicUserPage({
 
                         {/* 탭 + 목록 */}
                         {tabs.length > 0 ? (
-                            <PlaceTabs tabs={tabs} places={places} />
+                            <PlaceTabs tabs={tabs} places={places} viewerTabs={viewerTabs.length > 0 ? viewerTabs : undefined} />
                         ) : (
-                            <PlaceList places={places} />
+                            <PlaceList places={places} viewerTabs={viewerTabs.length > 0 ? viewerTabs : undefined} />
                         )}
                     </>
                 )}
@@ -97,11 +111,11 @@ export default async function PublicUserPage({
     );
 }
 
-function PlaceList({ places }: { places: PublicPlace[] }) {
+function PlaceList({ places, viewerTabs }: { places: PublicPlace[]; viewerTabs?: PlaceTab[] }) {
     return (
         <div className="space-y-3">
             {places.map((place) => (
-                <PlaceCard key={place.id} place={place} />
+                <PlaceCard key={place.id} place={place} viewerTabs={viewerTabs} />
             ))}
         </div>
     );
