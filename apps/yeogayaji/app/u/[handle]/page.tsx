@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import PlaceTabs from "./PlaceTabs";
 import PlaceMap from "./PlaceMap";
 import { PlaceCard } from "./PlaceCard";
+import { FollowButton } from "./FollowButton";
 import type { PublicPlace, PlaceTab } from "./types";
 
 type PublicProfile = {
@@ -57,13 +58,23 @@ export default async function PublicUserPage({
 
     // 뷰어 탭 (로그인한 경우 + 본인 페이지가 아닌 경우)
     let viewerTabs: PlaceTab[] = [];
+    let isFollowing = false;
     if (viewer && viewer.id !== profile.id) {
-        const { data: vTabs } = await supabase
-            .from("place_tabs")
-            .select("id, name, is_default")
-            .eq("user_id", viewer.id)
-            .order("created_at", { ascending: true });
+        const [{ data: vTabs }, { data: followRow }] = await Promise.all([
+            supabase
+                .from("place_tabs")
+                .select("id, name, is_default")
+                .eq("user_id", viewer.id)
+                .order("created_at", { ascending: true }),
+            supabase
+                .from("follows")
+                .select("id")
+                .eq("follower_id", viewer.id)
+                .eq("following_id", profile.id)
+                .maybeSingle(),
+        ]);
         viewerTabs = (vTabs as PlaceTab[] | null) ?? [];
+        isFollowing = !!followRow;
     }
 
     const mappablePlaces = places.filter(
@@ -76,13 +87,20 @@ export default async function PublicUserPage({
             {/* 프로필 헤더 */}
             <div className="bg-white px-5 pb-6 pt-10">
                 <div className="mx-auto max-w-lg">
-                    <p className="mb-1 text-xs font-medium text-[#6B7684]">@{profile.handle}</p>
-                    <h1 className="text-2xl font-bold tracking-tight text-[#191F28]">
-                        {profile.display_name || `${profile.handle}의 추천 리스트`}
-                    </h1>
-                    {profile.bio && (
-                        <p className="mt-2 text-sm leading-relaxed text-[#6B7684]">{profile.bio}</p>
-                    )}
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <p className="mb-1 text-xs font-medium text-[#6B7684]">@{profile.handle}</p>
+                            <h1 className="text-2xl font-bold tracking-tight text-[#191F28]">
+                                {profile.display_name || `${profile.handle}의 추천 리스트`}
+                            </h1>
+                            {profile.bio && (
+                                <p className="mt-2 text-sm leading-relaxed text-[#6B7684]">{profile.bio}</p>
+                            )}
+                        </div>
+                        {viewer && viewer.id !== profile.id && (
+                            <FollowButton followingId={profile.id} initialFollowing={isFollowing} />
+                        )}
+                    </div>
                 </div>
             </div>
 

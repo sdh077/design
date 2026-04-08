@@ -27,9 +27,6 @@ export async function POST(req: NextRequest) {
 
   const lat = body.lat ?? null;
   const lng = body.lng ?? null;
-  const naverLink = lat && lng
-    ? `https://map.naver.com/p?c=${lng},${lat},15,0,0,0,dh`
-    : "";
 
   const { data, error } = await supabase
     .from("places")
@@ -39,7 +36,7 @@ export async function POST(req: NextRequest) {
       place_name: body.place_name.trim(),
       description: body.description?.trim() || null,
       kakao_map_link: body.place_url,
-      naver_map_link: naverLink,
+      naver_map_link: "",
       naver_map_code: "",
       is_recommended: true,
       sort_order: 0,
