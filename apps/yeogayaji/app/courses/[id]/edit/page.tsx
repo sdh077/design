@@ -22,7 +22,7 @@ export default async function CourseEditPage({
 
   const { data: items } = await supabase
     .from("course_items")
-    .select("id, day, sort_order, name, link, description, time")
+    .select("id, day, sort_order, name, link, description, time, lat, lng, kakao_map_link")
     .eq("course_id", id)
     .order("day", { ascending: true })
     .order("sort_order", { ascending: true });

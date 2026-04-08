@@ -10,7 +10,8 @@ export async function PATCH(req: NextRequest, { params }: Context) {
   if (!user) return NextResponse.json({ message: "로그인이 필요합니다." }, { status: 401 });
 
   const body = await req.json().catch(() => null) as {
-    name?: string; link?: string | null; description?: string | null; time?: string | null; sort_order?: number; day?: number;
+    name?: string; link?: string | null; description?: string | null; time?: string | null;
+    sort_order?: number; day?: number; lat?: number | null; lng?: number | null; kakao_map_link?: string | null;
   } | null;
 
   const payload: Record<string, unknown> = {};
@@ -20,6 +21,9 @@ export async function PATCH(req: NextRequest, { params }: Context) {
   if (typeof body?.time !== "undefined") payload.time = body.time?.trim() || null;
   if (typeof body?.sort_order === "number") payload.sort_order = body.sort_order;
   if (typeof body?.day === "number") payload.day = body.day;
+  if (typeof body?.lat !== "undefined") payload.lat = body.lat;
+  if (typeof body?.lng !== "undefined") payload.lng = body.lng;
+  if (typeof body?.kakao_map_link !== "undefined") payload.kakao_map_link = body.kakao_map_link;
 
   const { error } = await supabase.from("course_items").update(payload).eq("id", itemId);
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });

@@ -30,6 +30,7 @@ export async function POST(req: NextRequest, { params }: Context) {
 
   const body = await req.json().catch(() => null) as {
     day: number; name: string; link?: string; description?: string; time?: string; sort_order?: number;
+    lat?: number | null; lng?: number | null; kakao_map_link?: string | null;
   } | null;
   if (!body?.name?.trim()) return NextResponse.json({ message: "이름을 입력해주세요." }, { status: 400 });
 
@@ -43,6 +44,9 @@ export async function POST(req: NextRequest, { params }: Context) {
       description: body.description?.trim() || null,
       time: body.time?.trim() || null,
       sort_order: body.sort_order ?? 0,
+      lat: body.lat ?? null,
+      lng: body.lng ?? null,
+      kakao_map_link: body.kakao_map_link ?? null,
     })
     .select("*")
     .single();
