@@ -26,6 +26,12 @@ export async function Header() {
           {user ? (
             <div className="flex items-center gap-2">
               <Link
+                href="/courses"
+                className="rounded-xl px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
+              >
+                코스
+              </Link>
+              <Link
                 href="/following"
                 className="rounded-xl px-3 py-2 text-sm font-semibold text-zinc-900 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
               >

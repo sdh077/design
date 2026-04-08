@@ -1,9 +1,8 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import PlaceTabs from "./PlaceTabs";
 import PlaceMap from "./PlaceMap";
-import { PlaceCard } from "./PlaceCard";
 import { FollowButton } from "./FollowButton";
+import ViewToggle from "./ViewToggle";
 import type { PublicPlace, PlaceTab } from "./types";
 
 type PublicProfile = {
@@ -56,6 +55,14 @@ export default async function PublicUserPage({
     const tabs = (rawTabs as PlaceTab[] | null) ?? [];
     const places = (rawPlaces as PublicPlace[] | null) ?? [];
 
+    const { data: rawCourses } = await supabase
+        .from("courses")
+        .select("id, name, days_count, created_at")
+        .eq("user_id", profile.id)
+        .eq("is_public", true)
+        .order("created_at", { ascending: false });
+    const courses = (rawCourses ?? []) as { id: string; name: string; days_count: number; created_at: string }[];
+
     // 뷰어 탭 (로그인한 경우 + 본인 페이지가 아닌 경우)
     let viewerTabs: PlaceTab[] = [];
     let isFollowing = false;
@@ -105,37 +112,19 @@ export default async function PublicUserPage({
             </div>
 
             <div className="mx-auto max-w-lg px-5 pb-16 pt-4 space-y-4">
-                {places.length === 0 ? (
-                    <div className="rounded-2xl bg-white px-6 py-12 text-center">
-                        <p className="text-sm text-[#B0B8C1]">아직 공개된 추천 장소가 없습니다.</p>
-                    </div>
-                ) : (
-                    <>
-                        {/* 지도 */}
-                        {mappablePlaces.length > 0 && (
-                            <PlaceMap places={mappablePlaces} />
-                        )}
-
-                        {/* 탭 + 목록 */}
-                        {tabs.length > 0 ? (
-                            <PlaceTabs tabs={tabs} places={places} viewerTabs={viewerTabs.length > 0 ? viewerTabs : undefined} />
-                        ) : (
-                            <PlaceList places={places} viewerTabs={viewerTabs.length > 0 ? viewerTabs : undefined} />
-                        )}
-                    </>
+                {mappablePlaces.length > 0 && (
+                    <PlaceMap places={mappablePlaces} />
                 )}
+                <ViewToggle
+                    tabs={tabs}
+                    places={places}
+                    courses={courses}
+                    viewerTabs={viewerTabs.length > 0 ? viewerTabs : undefined}
+                    profileHandle={profile.handle}
+                />
             </div>
         </div>
     );
 }
 
-function PlaceList({ places, viewerTabs }: { places: PublicPlace[]; viewerTabs?: PlaceTab[] }) {
-    return (
-        <div className="space-y-3">
-            {places.map((place) => (
-                <PlaceCard key={place.id} place={place} viewerTabs={viewerTabs} />
-            ))}
-        </div>
-    );
-}
 
