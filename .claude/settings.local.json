@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ls /Users/hira/Desktop/repo/port/port/apps/yeogayaji/app/u/[handle]/)"
+      "Bash(ls /Users/hira/Desktop/repo/port/port/apps/yeogayaji/app/u/[handle]/)",
+      "Bash(pnpm install:*)"
     ]
   }
 }
