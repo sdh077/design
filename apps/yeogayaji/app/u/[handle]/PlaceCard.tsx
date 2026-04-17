@@ -7,15 +7,17 @@ import type { PublicPlace, PlaceTab } from "./types";
 export function PlaceCard({
   place,
   viewerTabs,
+  onSelect,
 }: {
   place: PublicPlace;
   viewerTabs?: PlaceTab[];
+  onSelect?: (id: string) => void;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
     <>
-      <div className="rounded-2xl bg-white p-5">
+      <div className="rounded-2xl bg-white p-5 cursor-pointer" onClick={() => onSelect?.(place.id)}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold text-[#191F28]">

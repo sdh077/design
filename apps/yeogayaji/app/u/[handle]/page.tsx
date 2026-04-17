@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import PlaceMap from "./PlaceMap";
 import { FollowButton } from "./FollowButton";
-import ViewToggle from "./ViewToggle";
+import UserPageClient from "./UserPageClient";
 import type { PublicPlace, PlaceTab } from "./types";
 
 type PublicProfile = {
@@ -93,7 +92,7 @@ export default async function PublicUserPage({
         <div className="min-h-screen bg-[#F2F4F6]">
             {/* 프로필 헤더 */}
             <div className="bg-white px-5 pb-6 pt-10">
-                <div className="mx-auto max-w-lg">
+                <div className="mx-auto max-w-5xl">
                     <div className="flex items-start justify-between gap-3">
                         <div>
                             <p className="mb-1 text-xs font-medium text-[#6B7684]">@{profile.handle}</p>
@@ -111,16 +110,14 @@ export default async function PublicUserPage({
                 </div>
             </div>
 
-            <div className="mx-auto max-w-lg px-5 pb-16 pt-4 space-y-4">
-                {mappablePlaces.length > 0 && (
-                    <PlaceMap places={mappablePlaces} />
-                )}
-                <ViewToggle
+            <div className="mx-auto max-w-5xl px-5 pb-16 pt-4">
+                <UserPageClient
                     tabs={tabs}
                     places={places}
                     courses={courses}
                     viewerTabs={viewerTabs.length > 0 ? viewerTabs : undefined}
                     profileHandle={profile.handle}
+                    mappablePlaces={mappablePlaces}
                 />
             </div>
         </div>
