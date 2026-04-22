@@ -2,7 +2,30 @@
   "permissions": {
     "allow": [
       "Bash(ls /Users/hira/Desktop/repo/port/port/apps/yeogayaji/app/u/[handle]/)",
-      "Bash(pnpm install:*)"
+      "Bash(pnpm install:*)",
+      "Bash(pnpm create:*)",
+      "WebFetch(domain:aerycoffee.cafe24.com)",
+      "WebFetch(domain:www.faabscoffee.com)",
+      "WebFetch(domain:naver.me)",
+      "WebFetch(domain:map.naver.com)",
+      "WebSearch",
+      "WebFetch(domain:pcmap.place.naver.com)",
+      "Bash(pnpm --filter faabs dev)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(pnpm dev:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3101)",
+      "Bash(kill 16627)",
+      "WebFetch(domain:smartstore.naver.com)",
+      "WebFetch(domain:questbean.cafe24.com)",
+      "Bash(xargs ls:*)",
+      "Bash(python3 -c ':*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(npx tsc:*)",
+      "Bash(kill 22280)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3102)",
+      "Bash(xargs sed -i '' 's/text-black\\\\/30/text-black\\\\/50/g;:*)",
+      "Bash(pnpm add:*)"
     ]
   }
 }
