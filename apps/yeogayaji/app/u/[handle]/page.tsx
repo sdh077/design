@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { FollowButton } from "./FollowButton";
 import UserPageClient from "./UserPageClient";
@@ -107,6 +108,14 @@ export default async function PublicUserPage({
                             <FollowButton followingId={profile.id} initialFollowing={isFollowing} />
                         )}
                     </div>
+                    {courses.length > 0 && (
+                        <Link
+                            href={`/u/${profile.handle}/courses`}
+                            className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-[#E5E8EB] bg-white px-4 py-2 text-sm font-medium text-[#4E5968] transition hover:bg-[#F2F4F6]"
+                        >
+                            코스 보기
+                        </Link>
+                    )}
                 </div>
             </div>
 
